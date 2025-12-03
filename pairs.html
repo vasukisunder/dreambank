@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Lexicon</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #000000;
+            --gray-100: #111111;
+            --gray-200: #1a1a1a;
+            --gray-300: #333333;
+            --gray-400: #666666;
+            --gray-500: #999999;
+            --gray-600: #cccccc;
+            --gray-700: #e5e5e5;
+            --gray-800: #f5f5f5;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+            background: var(--white);
+            color: var(--black);
+            font-size: 10px;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .header {
+            border-bottom: 1px solid var(--black);
+            background: var(--white);
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-top {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 24px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .logo {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 20px;
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-400);
+        }
+
+        .stat-value {
+            color: var(--black);
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .universal-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 16px;
+            background: var(--white);
+        }
+
+        .search-container {
+            flex: 1;
+            position: relative;
+            max-width: 400px;
+        }
+
+        .universal-search {
+            width: 100%;
+            padding: 6px 12px;
+            font-size: 9px;
+            border: 1px solid var(--gray-700);
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .universal-search:focus {
+            outline: none;
+            border-color: var(--black);
+        }
+
+        .universal-search::placeholder {
+            color: var(--gray-500);
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .sort-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-right: 4px;
+        }
+
+        .universal-sort-btn {
+            padding: 5px 12px;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid var(--gray-700);
+            background: var(--white);
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .universal-sort-btn:hover {
+            background: var(--gray-800);
+        }
+
+        .universal-sort-btn.active {
+            background: var(--black);
+            color: var(--white);
+            border-color: var(--black);
+        }
+
+        .columns-container {
+            display: flex;
+            height: calc(100vh - 40px - 42px);
+            overflow: hidden;
+        }
+
+        .column {
+            flex: 1;
+            border-right: 1px solid var(--gray-700);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--white);
+        }
+
+        .column:last-child {
+            border-right: none;
+        }
+
+        .column.collapsed {
+            flex: 0 0 32px;
+            min-width: 32px;
+        }
+
+        .column.expanded {
+            flex: 1 1 auto;
+            min-width: 600px;
+        }
+
+        .column-header {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--gray-700);
+            cursor: pointer;
+            transition: background 0.15s;
+            flex-shrink: 0;
+        }
+
+        .column-header:hover {
+            background: var(--gray-800);
+        }
+
+        .column.collapsed .column-header {
+            writing-mode: vertical-lr;
+            text-align: center;
+            padding: 16px 6px;
+        }
+
+        .column-title {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-bottom: 4px;
+        }
+
+        .column.active .column-title {
+            color: var(--black);
+        }
+
+        .column.collapsed .column-title {
+            margin-bottom: 0;
+        }
+
+        .column-count {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-500);
+        }
+
+        .column.active .column-count {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .column.collapsed .column-count {
+            display: none;
+        }
+
+        .column.collapsed .items-list {
+            display: none;
+        }
+
+        .items-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--gray-800);
+            cursor: pointer;
+            align-items: baseline;
+            position: relative;
+        }
+
+        .item:hover {
+            background: var(--gray-800);
+        }
+
+        .item.active {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .item-text {
+            font-size: 9px;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item.active .item-text {
+            font-weight: 600;
+        }
+
+        .item-count {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 7px;
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .item.active .item-count {
+            color: var(--gray-500);
+        }
+
+        .hide-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 2px 6px;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            background: var(--gray-700);
+            color: var(--gray-400);
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 2px;
+        }
+
+        .item:hover .hide-btn {
+            display: block;
+        }
+
+        .hide-btn:hover {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .dreams-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+            display: none;
+        }
+
+        .column.expanded .dreams-view {
+            display: block;
+        }
+
+        .column.expanded .items-list {
+            display: none;
+        }
+
+        .dreams-header {
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .selected-phrase {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .dreams-meta {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-400);
+        }
+
+        .dream-card {
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .dream-card:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .dream-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .dream-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+        }
+
+        .dream-id {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-500);
+        }
+
+        .dream-text {
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--gray-100);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .highlight {
+            background-color: #ffeb3b;
+            color: #000000;
+            font-weight: 700;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+
+        mark {
+            background: var(--gray-800);
+            padding: 0 2px;
+        }
+
+        .back-button {
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            padding: 12px;
+            border-bottom: 1px solid var(--gray-700);
+            cursor: pointer;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            transition: background 0.15s;
+            z-index: 10;
+        }
+
+        .back-button:hover {
+            background: var(--gray-800);
+            color: var(--black);
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gray-700);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-600);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-top">
+            <div class="logo">Dream Lexicon</div>
+            <div class="header-stats">
+                <span>patterns <span class="stat-value" id="total-patterns">—</span></span>
+                <span>dreams <span class="stat-value" id="total-dreams">—</span></span>
+            </div>
+        </div>
+        <div class="universal-controls">
+            <div class="search-container">
+                <input type="text" class="universal-search" placeholder="Search all patterns..." id="universal-search">
+            </div>
+            <div class="sort-controls">
+                <span class="sort-label">Sort</span>
+                <button class="universal-sort-btn active" data-sort="alpha">A–Z</button>
+                <button class="universal-sort-btn" data-sort="freq">Frequency</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="columns-container">
+        <div class="column" data-pattern="adj_noun">
+            <div class="column-header">
+                <div class="column-title">Adj–Noun</div>
+                <div class="column-count" id="count-adj_noun">—</div>
+            </div>
+            <div class="items-list" id="list-adj_noun"></div>
+            <div class="dreams-view" id="dreams-adj_noun"></div>
+        </div>
+
+        <div class="column" data-pattern="verb_noun">
+            <div class="column-header">
+                <div class="column-title">Verb–Noun</div>
+                <div class="column-count" id="count-verb_noun">—</div>
+            </div>
+            <div class="items-list" id="list-verb_noun"></div>
+            <div class="dreams-view" id="dreams-verb_noun"></div>
+        </div>
+
+        <div class="column" data-pattern="prep">
+            <div class="column-header">
+                <div class="column-title">Prepositional</div>
+                <div class="column-count" id="count-prep">—</div>
+            </div>
+            <div class="items-list" id="list-prep"></div>
+            <div class="dreams-view" id="dreams-prep"></div>
+        </div>
+
+        <div class="column" data-pattern="adverb_verb">
+            <div class="column-header">
+                <div class="column-title">Adverb–Verb</div>
+                <div class="column-count" id="count-adverb_verb">—</div>
+            </div>
+            <div class="items-list" id="list-adverb_verb"></div>
+            <div class="dreams-view" id="dreams-adverb_verb"></div>
+        </div>
+
+        <div class="column" data-pattern="temporal">
+            <div class="column-header">
+                <div class="column-title">Temporal</div>
+                <div class="column-count" id="count-temporal">—</div>
+            </div>
+            <div class="items-list" id="list-temporal"></div>
+            <div class="dreams-view" id="dreams-temporal"></div>
+        </div>
+
+        <div class="column" data-pattern="compound">
+            <div class="column-header">
+                <div class="column-title">Compound</div>
+                <div class="column-count" id="count-compound">—</div>
+            </div>
+            <div class="items-list" id="list-compound"></div>
+            <div class="dreams-view" id="dreams-compound"></div>
+        </div>
+
+        <div class="column" data-pattern="emotional">
+            <div class="column-header">
+                <div class="column-title">Emotional</div>
+                <div class="column-count" id="count-emotional">—</div>
+            </div>
+            <div class="items-list" id="list-emotional"></div>
+            <div class="dreams-view" id="dreams-emotional"></div>
+        </div>
+    </div>
+
+    <script>
+        let patternsData = {
+            adj_noun: new Map(),
+            verb_noun: new Map(),
+            prep: new Map(),
+            adverb_verb: new Map(),
+            temporal: new Map(),
+            compound: new Map(),
+            emotional: new Map()
+        };
+
+        let columnData = {
+            adj_noun: { all: [], filtered: [] },
+            verb_noun: { all: [], filtered: [] },
+            prep: { all: [], filtered: [] },
+            adverb_verb: { all: [], filtered: [] },
+            temporal: { all: [], filtered: [] },
+            compound: { all: [], filtered: [] },
+            emotional: { all: [], filtered: [] }
+        };
+
+        let universalSort = 'alpha';
+        let universalSearch = '';
+        let blacklist = {
+            adj_noun: new Set(),
+            verb_noun: new Set(),
+            prep: new Set(),
+            adverb_verb: new Set(),
+            temporal: new Set(),
+            compound: new Set(),
+            emotional: new Set()
+        };
+
+        function loadBlacklist() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    Object.keys(parsed).forEach(pattern => {
+                        parsed[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
+                    });
+                } catch (e) {
+                    console.error('Error loading localStorage blacklist:', e);
+                }
+            }
+
+            return fetch('blacklist.json')
+                .then(r => r.json())
+                .then(data => {
+                    Object.keys(data).forEach(pattern => {
+                        data[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
+                    });
+                })
+                .catch(err => {
+                    console.log('No blacklist.json found (this is ok)');
+                });
+        }
+
+        function extractAllPatterns(dreams) {
+            dreams.forEach(dream => {
+                (dream.adj_noun_pairs || []).forEach(p => addToMap('adj_noun', p.text, dream));
+                (dream.verb_noun_pairs || []).forEach(p => addToMap('verb_noun', p.text, dream));
+                (dream.prep_phrases || []).forEach(p => addToMap('prep', p.text, dream));
+                (dream.adverb_verb_pairs || []).forEach(p => addToMap('adverb_verb', p.text, dream));
+                (dream.temporal_phrases || []).forEach(p => addToMap('temporal', p.text, dream));
+                (dream.compound_nouns || []).forEach(p => addToMap('compound', p.text, dream));
+                (dream.emotional_verb_phrases || []).forEach(p => addToMap('emotional', p.text, dream));
+            });
+
+            Object.keys(patternsData).forEach(pattern => {
+                const allItems = Array.from(patternsData[pattern].keys());
+                columnData[pattern].all = allItems.filter(item => !blacklist[pattern].has(item.toLowerCase()));
+                columnData[pattern].filtered = [...columnData[pattern].all];
+            });
+
+            document.getElementById('count-adj_noun').textContent = patternsData.adj_noun.size;
+            document.getElementById('count-verb_noun').textContent = patternsData.verb_noun.size;
+            document.getElementById('count-prep').textContent = patternsData.prep.size;
+            document.getElementById('count-adverb_verb').textContent = patternsData.adverb_verb.size;
+            document.getElementById('count-temporal').textContent = patternsData.temporal.size;
+            document.getElementById('count-compound').textContent = patternsData.compound.size;
+            document.getElementById('count-emotional').textContent = patternsData.emotional.size;
+
+            const total = Object.values(patternsData).reduce((sum, map) => sum + map.size, 0);
+            document.getElementById('total-patterns').textContent = total.toLocaleString();
+            document.getElementById('total-dreams').textContent = dreams.length.toLocaleString();
+
+            Object.keys(patternsData).forEach(pattern => renderColumn(pattern));
+        }
+
+        function addToMap(pattern, text, dream) {
+            const normalized = text.toLowerCase().trim();
+            if (normalized && /^[a-z]/.test(normalized)) {
+                if (!patternsData[pattern].has(normalized)) {
+                    patternsData[pattern].set(normalized, []);
+                }
+                const list = patternsData[pattern].get(normalized);
+                if (!list.some(d => d.id === dream.id)) {
+                    list.push(dream);
+                }
+            }
+        }
+
+        function sortItems(items, pattern, sortType) {
+            const sorted = [...items];
+            const map = patternsData[pattern];
+            
+            if (sortType === 'alpha') {
+                sorted.sort();
+            } else {
+                sorted.sort((a, b) => {
+                    const countA = map.get(a)?.length || 0;
+                    const countB = map.get(b)?.length || 0;
+                    return countB !== countA ? countB - countA : a.localeCompare(b);
+                });
+            }
+            return sorted;
+        }
+
+        function filterItems(items, query) {
+            if (!query.trim()) return items;
+            const q = query.toLowerCase();
+            return items.filter(item => item.includes(q));
+        }
+
+        function renderColumn(pattern) {
+            const data = columnData[pattern];
+            const list = document.getElementById(`list-${pattern}`);
+            const map = patternsData[pattern];
+            
+            data.filtered = filterItems(data.all, universalSearch);
+            data.filtered = sortItems(data.filtered, pattern, universalSort);
+            
+            list.innerHTML = '';
+            
+            data.filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                
+                const text = document.createElement('div');
+                text.className = 'item-text';
+                text.textContent = item;
+                
+                const count = document.createElement('div');
+                count.className = 'item-count';
+                count.textContent = (map.get(item)?.length || 0);
+                
+                const hideBtn = document.createElement('button');
+                hideBtn.className = 'hide-btn';
+                hideBtn.textContent = 'Hide';
+                hideBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    hideItem(pattern, item);
+                });
+                
+                div.appendChild(text);
+                div.appendChild(count);
+                div.appendChild(hideBtn);
+                
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const anyExpanded = document.querySelector('.column.expanded');
+                    if (anyExpanded) {
+                        collapseAll();
+                        setTimeout(() => expandColumn(pattern, item), 50);
+                    } else {
+                        expandColumn(pattern, item);
+                    }
+                });
+                
+                list.appendChild(div);
+            });
+        }
+
+        function renderAllColumns() {
+            Object.keys(patternsData).forEach(pattern => renderColumn(pattern));
+        }
+
+        function hideItem(pattern, phrase) {
+            blacklist[pattern].add(phrase.toLowerCase());
+            
+            const blacklistObj = {};
+            Object.keys(blacklist).forEach(p => {
+                blacklistObj[p] = Array.from(blacklist[p]);
+            });
+            localStorage.setItem('dreambank_blacklist', JSON.stringify(blacklistObj));
+            
+            columnData[pattern].all = columnData[pattern].all.filter(item => item.toLowerCase() !== phrase.toLowerCase());
+            
+            renderColumn(pattern);
+            
+            console.log(`Hidden: "${phrase}" from ${pattern}. Reload page to see it gone from all views.`);
+        }
+
+        function expandColumn(pattern, selectedItem) {
+            const columns = document.querySelectorAll('.column');
+            const selectedColumn = document.querySelector(`.column[data-pattern="${pattern}"]`);
+            
+            columns.forEach(col => {
+                col.classList.remove('expanded', 'active');
+                col.classList.add('collapsed');
+            });
+            
+            selectedColumn.classList.remove('collapsed');
+            selectedColumn.classList.add('expanded', 'active');
+            
+            selectedColumn.querySelectorAll('.item').forEach(item => item.classList.remove('active'));
+            
+            displayDreams(pattern, selectedItem);
+        }
+
+        function collapseAll() {
+            const columns = document.querySelectorAll('.column');
+            columns.forEach(col => {
+                col.classList.remove('expanded', 'collapsed', 'active');
+            });
+        }
+
+        function displayDreams(pattern, phrase) {
+            const dreams = patternsData[pattern].get(phrase) || [];
+            const viewEl = document.getElementById(`dreams-${pattern}`);
+            
+            let html = `
+                <div class="back-button" onclick="collapseAll()">← BACK TO ALL COLUMNS</div>
+                <div class="dreams-header">
+                    <div class="selected-phrase">${escapeHtml(phrase)}</div>
+                    <div class="dreams-meta">${dreams.length} DREAM${dreams.length !== 1 ? 'S' : ''}</div>
+                </div>
+            `;
+            
+            dreams.forEach(dream => {
+                const highlighted = highlightPhrase(dream.text, phrase);
+                html += `
+                    <div class="dream-card">
+                        <div class="dream-card-header">
+                            <span class="dream-label">Dream</span>
+                            <span class="dream-id">#${(dream.id + 1).toString().padStart(5, '0')}</span>
+                        </div>
+                        <div class="dream-text">${highlighted}</div>
+                    </div>
+                `;
+            });
+            
+            viewEl.innerHTML = html;
+            viewEl.scrollTop = 0;
+        }
+
+        function highlightPhrase(text, phrase) {
+            const escaped = escapeHtml(text);
+            const lower = text.toLowerCase();
+            const lowerPhrase = phrase.toLowerCase();
+            const parts = [];
+            let lastIdx = 0;
+            let idx = lower.indexOf(lowerPhrase);
+            
+            while (idx !== -1) {
+                if (idx > lastIdx) parts.push(escaped.substring(lastIdx, idx));
+                const match = text.substring(idx, idx + phrase.length);
+                parts.push(`<span class="highlight">${escapeHtml(match)}</span>`);
+                lastIdx = idx + phrase.length;
+                idx = lower.indexOf(lowerPhrase, lastIdx);
+            }
+            
+            if (lastIdx < escaped.length) parts.push(escaped.substring(lastIdx));
+            return parts.join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.querySelectorAll('.column-header').forEach(header => {
+            header.addEventListener('click', function(e) {
+                const column = this.closest('.column');
+                const anyExpanded = document.querySelector('.column.expanded');
+                
+                if (anyExpanded) {
+                    collapseAll();
+                }
+            });
+        });
+
+        document.getElementById('universal-search').addEventListener('input', function(e) {
+            const anyExpanded = document.querySelector('.column.expanded');
+            if (anyExpanded) {
+                collapseAll();
+            }
+            universalSearch = e.target.value;
+            renderAllColumns();
+        });
+
+        document.querySelectorAll('.universal-sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const anyExpanded = document.querySelector('.column.expanded');
+                if (anyExpanded) {
+                    collapseAll();
+                }
+                universalSort = this.dataset.sort;
+                document.querySelectorAll('.universal-sort-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                renderAllColumns();
+            });
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                collapseAll();
+            }
+        });
+
+        window.exportBlacklist = function() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (!stored) {
+                console.log('No items hidden yet!');
+                return;
+            }
+            
+            const parsed = JSON.parse(stored);
+            console.log('\n=== COPY THIS TO blacklist.json ===\n');
+            console.log(JSON.stringify(parsed, null, 2));
+            console.log('\n=== END ===\n');
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2))
+                    .then(() => console.log('✓ Also copied to clipboard!'))
+                    .catch(() => console.log('(Could not copy to clipboard automatically)'));
+            }
+            
+            return parsed;
+        };
+
+        window.showBlacklistStats = function() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (!stored) {
+                console.log('No items hidden yet!');
+                return;
+            }
+            
+            const parsed = JSON.parse(stored);
+            console.log('\n=== BLACKLIST STATS ===');
+            Object.keys(parsed).forEach(pattern => {
+                if (parsed[pattern].length > 0) {
+                    console.log(`${pattern}: ${parsed[pattern].length} items`);
+                    parsed[pattern].forEach(item => console.log(`  - ${item}`));
+                }
+            });
+            console.log('=== END ===\n');
+        };
+
+        loadBlacklist()
+            .then(() => fetch('dreams_processed.json'))
+            .then(r => r.json())
+            .then(dreams => extractAllPatterns(dreams))
+            .catch(err => {
+                console.error(err);
+            });
+    </script>
+</body>
+</html>
+
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Blackout Poetry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background-color: #fafafa;
+            color: #000;
+            line-height: 1.1;
+            padding: 0;
+            margin: 0;
+            font-size: 10px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            padding: 20px 40px;
+            margin: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+        }
+
+        .dream {
+            margin: 0;
+            padding: 0;
+            position: relative;
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            display: inline;
+        }
+
+        .dream-text {
+            position: relative;
+            display: inline;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            width: 100%;
+        }
+
+        .visible-text {
+            color: #000;
+            display: inline;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            margin: 0;
+            padding: 0;
+        }
+
+        .redaction {
+            background-color: #000;
+            color: #000;
+            display: inline-block;
+            min-width: 8px;
+            height: 1.2em;
+            margin: 0;
+            padding: 0;
+            vertical-align: baseline;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .redaction:hover {
+            background-color: #333;
+        }
+
+        .redaction.revealed {
+            background-color: transparent;
+            color: #000;
+            display: inline;
+            min-width: auto;
+            width: auto;
+            height: auto;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* No spacing between dreams - back to back */
+        .dream + .dream {
+            margin-top: 0;
+            padding-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="dreams-container">
+        <p>Loading dreams...</p>
+    </div>
+
+    <script>
+        const AVG_CHAR_WIDTH = 7;
+        
+        function createRedaction(text) {
+            const span = document.createElement('span');
+            span.className = 'redaction';
+            span.setAttribute('data-text', text);
+            
+            const approximateWidth = text.length * AVG_CHAR_WIDTH;
+            span.style.width = `${Math.max(8, approximateWidth)}px`;
+            
+            span.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (span.classList.contains('revealed')) {
+                    span.classList.remove('revealed');
+                    span.textContent = '';
+                } else {
+                    span.classList.add('revealed');
+                    span.textContent = text;
+                }
+            });
+            
+            return span;
+        }
+
+        function renderDream(dream) {
+            const dreamDiv = document.createElement('div');
+            dreamDiv.className = 'dream';
+            dreamDiv.dataset.dreamId = dream.id;
+            
+            const text = dream.text;
+            const visibleRanges = dream.visible_ranges || [];
+            
+            if (visibleRanges.length === 0) {
+                const words = text.match(/\S+|\s+/g) || [];
+                words.forEach(word => {
+                    dreamDiv.appendChild(createRedaction(word));
+                });
+            } else {
+                const sortedRanges = visibleRanges.sort((a, b) => a[0] - b[0]);
+                
+                let lastPos = 0;
+                const fragment = document.createDocumentFragment();
+                
+                for (const [start, end] of sortedRanges) {
+                    if (start > lastPos) {
+                        const hiddenText = text.substring(lastPos, start);
+                        const words = hiddenText.match(/\S+|\s+/g) || [];
+                        words.forEach(word => {
+                            fragment.appendChild(createRedaction(word));
+                        });
+                    }
+                    
+                    const visibleText = text.substring(start, end);
+                    const visibleSpan = document.createElement('span');
+                    visibleSpan.className = 'visible-text';
+                    visibleSpan.textContent = visibleText;
+                    fragment.appendChild(visibleSpan);
+                    
+                    lastPos = end;
+                }
+                
+                if (lastPos < text.length) {
+                    const remainingText = text.substring(lastPos);
+                    const words = remainingText.match(/\S+|\s+/g) || [];
+                    words.forEach(word => {
+                        fragment.appendChild(createRedaction(word));
+                    });
+                }
+                
+                dreamDiv.appendChild(fragment);
+            }
+            
+            return dreamDiv;
+        }
+
+        function renderAllDreams(dreams) {
+            const container = document.getElementById('dreams-container');
+            container.innerHTML = '';
+            
+            let index = 0;
+            const batchSize = 50;
+            
+            function renderBatch() {
+                const end = Math.min(index + batchSize, dreams.length);
+                const fragment = document.createDocumentFragment();
+                
+                for (let i = index; i < end; i++) {
+                    const dreamElement = renderDream(dreams[i]);
+                    fragment.appendChild(dreamElement);
+                }
+                
+                container.appendChild(fragment);
+                index = end;
+                
+                if (index < dreams.length) {
+                    requestAnimationFrame(renderBatch);
+                }
+            }
+            
+            renderBatch();
+        }
+
+        fetch('dreams_processed.json')
+            .then(response => response.json())
+            .then(dreams => {
+                renderAllDreams(dreams);
+            })
+            .catch(error => {
+                console.error('Error loading dreams:', error);
+                document.getElementById('dreams-container').innerHTML = 
+                    '<p>Error loading dreams. Please run process_dreams.py first to generate dreams_processed.json</p>';
+            });
+    </script>
+</body>
+</html>
+
