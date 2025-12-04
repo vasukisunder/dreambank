@@ -594,24 +594,6 @@
                     console.error('Error loading localStorage blacklist:', e);
                 }
             }
-            
-            // Then load from blacklist.json
-            try {
-                const response = await fetch('./blacklist.json');
-                if (response.ok) {
-                    const data = await response.json();
-                    Object.keys(data).forEach(pattern => {
-                        if (data[pattern] && Array.isArray(data[pattern])) {
-                            data[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
-                        }
-                    });
-                    console.log(`Loaded blacklist: ${Object.keys(data).map(k => data[k].length).reduce((a,b) => a+b, 0)} items`);
-                } else {
-                    console.log(`blacklist.json fetch failed: ${response.status}`);
-                }
-            } catch (err) {
-                console.log('Error loading blacklist.json:', err.message);
-            }
         }
 
         function hideItem(pattern, phrase) {
