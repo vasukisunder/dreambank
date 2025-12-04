@@ -666,7 +666,7 @@
             
             if (error) {
                 console.error('Error fetching patterns:', error);
-                return [];
+                return { results: [], total: 0 };
             }
             
             // Filter and count
@@ -693,8 +693,10 @@
                 results.sort((a, b) => a.text.localeCompare(b.text));
             }
             
+            const total = results.length;
+            
             // Paginate
-            return results.slice(offset, offset + limit);
+            return { results: results.slice(offset, offset + limit), total };
         }
 
         async function getTotalPatternCount(patternType) {
@@ -756,7 +758,7 @@
             }
             
             try {
-                const patterns = await getPatternsByType(
+                const { results, total } = await getPatternsByType(
                     pattern, 
                     universalSort, 
                     universalSearch, 
@@ -764,16 +766,17 @@
                     columnData[pattern].offset
                 );
                 
-                columnData[pattern].patterns.push(...patterns);
-                columnData[pattern].offset += patterns.length;
-                columnData[pattern].hasMore = patterns.length === ITEMS_PER_PAGE;
+                columnData[pattern].patterns.push(...results);
+                columnData[pattern].offset += results.length;
+                columnData[pattern].hasMore = results.length === ITEMS_PER_PAGE;
                 columnData[pattern].loaded = true;
                 columnData[pattern].loading = false;
+                columnData[pattern].total = total;
                 
                 renderPatternList(pattern, columnData[pattern].patterns, append);
                 
-                // Update count with actual filtered count
-                document.getElementById(`count-${pattern}`).textContent = columnData[pattern].patterns.length.toLocaleString();
+                // Update count with total filtered count
+                document.getElementById(`count-${pattern}`).textContent = total.toLocaleString();
             } catch (error) {
                 console.error(`Error loading column ${pattern}:`, error);
                 listEl.innerHTML = '<div class="loading-indicator">Error loading patterns</div>';
