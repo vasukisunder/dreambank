@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Blackout Poetry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background-color: #fafafa;
+            color: #000;
+            line-height: 1.1;
+            padding: 0;
+            margin: 0;
+            font-size: 10px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            padding: 20px 40px;
+            margin: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+        }
+
+        .loading-indicator {
+            padding: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .dream {
+            margin: 0;
+            padding: 0;
+            position: relative;
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            display: inline;
+        }
+
+        .dream-text {
+            position: relative;
+            display: inline;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            width: 100%;
+        }
+
+        .visible-text {
+            color: #000;
+            display: inline;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            margin: 0;
+            padding: 0;
+        }
+
+        .redaction {
+            background-color: #000;
+            color: #000;
+            display: inline-block;
+            min-width: 8px;
+            height: 1.2em;
+            margin: 0;
+            padding: 0;
+            vertical-align: baseline;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .redaction:hover {
+            background-color: #333;
+        }
+
+        .redaction.revealed {
+            background-color: transparent;
+            color: #000;
+            display: inline;
+            min-width: auto;
+            width: auto;
+            height: auto;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* No spacing between dreams - back to back */
+        .dream + .dream {
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .controls button {
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            font-size: 10px;
+            border: 1px solid #ccc;
+            background: white;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .controls button:hover {
+            background: #f0f0f0;
+        }
+
+        .controls button:last-child {
+            margin-bottom: 0;
+        }
+
+        .stats {
+            font-size: 9px;
+            color: #666;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="loadMoreDreams()">Load More Dreams</button>
+        <button onclick="revealAll()">Reveal All</button>
+        <button onclick="hideAll()">Hide All</button>
+        <div class="stats">
+            <div>Dreams loaded: <span id="dreams-count">0</span></div>
+            <div>Total in DB: <span id="total-dreams">—</span></div>
+        </div>
+    </div>
+
+    <div class="container" id="dreams-container">
+        <p class="loading-indicator">Loading dreams...</p>
+    </div>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // ======= CONFIGURATION =======
+        const SUPABASE_URL = 'https://ldpxwjzqaraehwvybiqe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcHh3anpxYXJhZWh3dnliaXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODEwMDAsImV4cCI6MjA4MDM1NzAwMH0.9N7ml2HWY0I3KZ4PEGoyCqnMKRJGzYUcX6g_HuBwIgU';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ======= STATE =======
+        const AVG_CHAR_WIDTH = 7;
+        const DREAMS_PER_PAGE = 50;
+        let currentOffset = 0;
+        let hasMoreDreams = true;
+        let isLoading = false;
+        
+        // ======= SUPABASE QUERIES =======
+        async function getTotalDreamsCount() {
+            const { count, error } = await supabase
+                .from('dreams')
+                .select('*', { count: 'exact', head: true });
+            
+            if (error) {
+                console.error('Error fetching dreams count:', error);
+                return 0;
+            }
+            return count;
+        }
+
+        async function loadDreams(limit = DREAMS_PER_PAGE, offset = 0) {
+            const { data: dreams, error: dreamsError } = await supabase
+                .from('dreams')
+                .select('id, text')
+                .order('id', { ascending: true })
+                .range(offset, offset + limit - 1);
+            
+            if (dreamsError) {
+                console.error('Error fetching dreams:', dreamsError);
+                return [];
+            }
+            
+            // For each dream, fetch its visible ranges
+            const dreamsWithRanges = await Promise.all(dreams.map(async (dream) => {
+                const { data: ranges, error: rangesError } = await supabase
+                    .from('visible_ranges')
+                    .select('start_pos, end_pos')
+                    .eq('dream_id', dream.id)
+                    .order('start_pos', { ascending: true });
+                
+                if (rangesError) {
+                    console.error('Error fetching visible ranges:', rangesError);
+                    return { ...dream, visible_ranges: [] };
+                }
+                
+                return {
+                    ...dream,
+                    visible_ranges: ranges.map(r => [r.start_pos, r.end_pos])
+                };
+            }));
+            
+            return dreamsWithRanges;
+        }
+
+        // ======= RENDERING =======
+        function createRedaction(text) {
+            const span = document.createElement('span');
+            span.className = 'redaction';
+            span.setAttribute('data-text', text);
+            
+            const approximateWidth = text.length * AVG_CHAR_WIDTH;
+            span.style.width = `${Math.max(8, approximateWidth)}px`;
+            
+            span.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (span.classList.contains('revealed')) {
+                    span.classList.remove('revealed');
+                    span.textContent = '';
+                } else {
+                    span.classList.add('revealed');
+                    span.textContent = text;
+                }
+            });
+            
+            return span;
+        }
+
+        function renderDream(dream) {
+            const dreamDiv = document.createElement('div');
+            dreamDiv.className = 'dream';
+            dreamDiv.dataset.dreamId = dream.id;
+            
+            const text = dream.text;
+            const visibleRanges = dream.visible_ranges || [];
+            
+            if (visibleRanges.length === 0) {
+                const words = text.match(/\S+|\s+/g) || [];
+                words.forEach(word => {
+                    dreamDiv.appendChild(createRedaction(word));
+                });
+            } else {
+                const sortedRanges = visibleRanges.sort((a, b) => a[0] - b[0]);
+                
+                let lastPos = 0;
+                const fragment = document.createDocumentFragment();
+                
+                for (const [start, end] of sortedRanges) {
+                    if (start > lastPos) {
+                        const hiddenText = text.substring(lastPos, start);
+                        const words = hiddenText.match(/\S+|\s+/g) || [];
+                        words.forEach(word => {
+                            fragment.appendChild(createRedaction(word));
+                        });
+                    }
+                    
+                    const visibleText = text.substring(start, end);
+                    const visibleSpan = document.createElement('span');
+                    visibleSpan.className = 'visible-text';
+                    visibleSpan.textContent = visibleText;
+                    fragment.appendChild(visibleSpan);
+                    
+                    lastPos = end;
+                }
+                
+                if (lastPos < text.length) {
+                    const remainingText = text.substring(lastPos);
+                    const words = remainingText.match(/\S+|\s+/g) || [];
+                    words.forEach(word => {
+                        fragment.appendChild(createRedaction(word));
+                    });
+                }
+                
+                dreamDiv.appendChild(fragment);
+            }
+            
+            return dreamDiv;
+        }
+
+        async function loadMoreDreams() {
+            if (isLoading || !hasMoreDreams) return;
+            
+            isLoading = true;
+            const container = document.getElementById('dreams-container');
+            
+            // Remove loading message on first load
+            if (currentOffset === 0) {
+                container.innerHTML = '';
+            }
+            
+            try {
+                const dreams = await loadDreams(DREAMS_PER_PAGE, currentOffset);
+                
+                if (dreams.length === 0) {
+                    hasMoreDreams = false;
+                    if (currentOffset === 0) {
+                        container.innerHTML = '<p class="loading-indicator">No dreams found in database.</p>';
+                    }
+                    return;
+                }
+                
+                // Render dreams in batches for better performance
+                const fragment = document.createDocumentFragment();
+                dreams.forEach(dream => {
+                    const dreamElement = renderDream(dream);
+                    fragment.appendChild(dreamElement);
+                });
+                
+                container.appendChild(fragment);
+                
+                currentOffset += dreams.length;
+                document.getElementById('dreams-count').textContent = currentOffset;
+                
+                if (dreams.length < DREAMS_PER_PAGE) {
+                    hasMoreDreams = false;
+                }
+            } catch (error) {
+                console.error('Error loading dreams:', error);
+                container.innerHTML = '<p class="loading-indicator">Error loading dreams. Please check console for details.</p>';
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function revealAll() {
+            document.querySelectorAll('.redaction').forEach(redaction => {
+                redaction.classList.add('revealed');
+                redaction.textContent = redaction.getAttribute('data-text');
+            });
+        }
+
+        function hideAll() {
+            document.querySelectorAll('.redaction').forEach(redaction => {
+                redaction.classList.remove('revealed');
+                redaction.textContent = '';
+            });
+        }
+
+        // ======= INITIALIZATION =======
+        async function init() {
+            // Check if Supabase is configured
+            if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+                const container = document.getElementById('dreams-container');
+                container.innerHTML = '<p class="loading-indicator">Please configure your Supabase credentials in the HTML file. See the README for instructions.</p>';
+                return;
+            }
+            
+            // Load total dreams count
+            const totalDreams = await getTotalDreamsCount();
+            document.getElementById('total-dreams').textContent = totalDreams.toLocaleString();
+            
+            // Load initial batch of dreams
+            await loadMoreDreams();
+        }
+
+        // Infinite scroll
+        window.addEventListener('scroll', () => {
+            if (isLoading || !hasMoreDreams) return;
+            
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const threshold = document.documentElement.scrollHeight - 1000;
+            
+            if (scrollPosition >= threshold) {
+                loadMoreDreams();
+            }
+        });
+
+        // Start the app
+        init().catch(error => {
+            console.error('Error initializing app:', error);
+            const container = document.getElementById('dreams-container');
+            container.innerHTML = '<p class="loading-indicator">Error connecting to database. Please check your Supabase configuration and console for details.</p>';
+        });
+    </script>
+</body>
+</html>
+

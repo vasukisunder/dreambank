@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dream Blackout Poetry</title>
+    <title>Dream Lexicon</title>
     <style>
         * {
             margin: 0;
@@ -11,206 +11,1078 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --black: #000000;
+            --gray-100: #111111;
+            --gray-200: #1a1a1a;
+            --gray-300: #333333;
+            --gray-400: #666666;
+            --gray-500: #999999;
+            --gray-600: #cccccc;
+            --gray-700: #e5e5e5;
+            --gray-800: #f5f5f5;
+            --white: #ffffff;
+        }
+
         body {
-            font-family: 'Georgia', 'Times New Roman', serif;
-            background-color: #fafafa;
-            color: #000;
-            line-height: 1.1;
-            padding: 0;
-            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+            background: var(--white);
+            color: var(--black);
             font-size: 10px;
-            overflow-x: hidden;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
         }
 
-        .container {
-            width: 100%;
-            padding: 20px 40px;
-            margin: 0;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            box-sizing: border-box;
-        }
-
-        .dream {
-            margin: 0;
-            padding: 0;
+        .header {
+            border-bottom: 1px solid var(--black);
+            background: var(--white);
             position: relative;
+            z-index: 100;
+        }
+
+        .header-top {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 24px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .logo {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 20px;
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-400);
+        }
+
+        .stat-value {
+            color: var(--black);
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .universal-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 16px;
+            background: var(--white);
+        }
+
+        .search-container {
+            flex: 1;
+            position: relative;
+            max-width: 400px;
+        }
+
+        .universal-search {
+            width: 100%;
+            padding: 6px 12px;
+            font-size: 9px;
+            border: 1px solid var(--gray-700);
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .universal-search:focus {
+            outline: none;
+            border-color: var(--black);
+        }
+
+        .universal-search::placeholder {
+            color: var(--gray-500);
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .sort-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-right: 4px;
+        }
+
+        .universal-sort-btn {
+            padding: 5px 12px;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid var(--gray-700);
+            background: var(--white);
             cursor: pointer;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            display: inline;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .universal-sort-btn:hover {
+            background: var(--gray-800);
+        }
+
+        .universal-sort-btn.active {
+            background: var(--black);
+            color: var(--white);
+            border-color: var(--black);
+        }
+
+        .columns-container {
+            display: flex;
+            height: calc(100vh - 40px - 42px);
+            overflow: hidden;
+        }
+
+        .column {
+            flex: 1;
+            border-right: 1px solid var(--gray-700);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--white);
+        }
+
+        .column:last-child {
+            border-right: none;
+        }
+
+        .column.collapsed {
+            flex: 0 0 32px;
+            min-width: 32px;
+        }
+
+        .column.expanded {
+            flex: 1 1 auto;
+            min-width: 600px;
+        }
+
+        .column-header {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--gray-700);
+            cursor: pointer;
+            transition: background 0.15s;
+            flex-shrink: 0;
+        }
+
+        .column-header:hover {
+            background: var(--gray-800);
+        }
+
+        .column.collapsed .column-header {
+            writing-mode: vertical-lr;
+            text-align: center;
+            padding: 16px 6px;
+        }
+
+        .column-title {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-bottom: 4px;
+        }
+
+        .column.active .column-title {
+            color: var(--black);
+        }
+
+        .column.collapsed .column-title {
+            margin-bottom: 0;
+        }
+
+        .column-count {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-500);
+        }
+
+        .column.active .column-count {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .column.collapsed .column-count {
+            display: none;
+        }
+
+        .column.collapsed .items-list {
+            display: none;
+        }
+
+        .items-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .loading-indicator {
+            padding: 20px;
+            text-align: center;
+            color: var(--gray-400);
+            font-size: 8px;
+        }
+
+        .item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--gray-800);
+            cursor: pointer;
+            align-items: baseline;
+            position: relative;
+        }
+
+        .item:hover {
+            background: var(--gray-800);
+        }
+
+        .item.active {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .item-text {
+            font-size: 9px;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item.active .item-text {
+            font-weight: 600;
+        }
+
+        .item-count {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 7px;
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .item.active .item-count {
+            color: var(--gray-500);
+        }
+
+        .hide-btn {
+            display: none;
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 2px 6px;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            background: var(--gray-700);
+            color: var(--gray-400);
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 2px;
+        }
+
+        .item:hover .hide-btn {
+            display: block;
+        }
+
+        .hide-btn:hover {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .dreams-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
+            display: none;
+        }
+
+        .column.expanded .dreams-view {
+            display: block;
+        }
+
+        .column.expanded .items-list {
+            display: none;
+        }
+
+        .dreams-header {
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .selected-phrase {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .dreams-meta {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-400);
+        }
+
+        .dream-card {
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .dream-card:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .dream-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .dream-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+        }
+
+        .dream-id {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-size: 8px;
+            color: var(--gray-500);
         }
 
         .dream-text {
-            position: relative;
-            display: inline;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--gray-100);
+            white-space: pre-wrap;
             word-wrap: break-word;
-            overflow-wrap: break-word;
-            width: 100%;
         }
 
-        .visible-text {
-            color: #000;
-            display: inline;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            margin: 0;
-            padding: 0;
+        .highlight {
+            background-color: #ffeb3b;
+            color: #000000;
+            font-weight: 700;
+            padding: 2px 4px;
+            border-radius: 2px;
         }
 
-        .redaction {
-            background-color: #000;
-            color: #000;
-            display: inline-block;
-            min-width: 8px;
-            height: 1.2em;
-            margin: 0;
-            padding: 0;
-            vertical-align: baseline;
+        mark {
+            background: var(--gray-800);
+            padding: 0 2px;
+        }
+
+        .back-button {
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            padding: 12px;
+            border-bottom: 1px solid var(--gray-700);
             cursor: pointer;
-            transition: background-color 0.2s;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            transition: background 0.15s;
+            z-index: 10;
         }
 
-        .redaction:hover {
-            background-color: #333;
+        .back-button:hover {
+            background: var(--gray-800);
+            color: var(--black);
         }
 
-        .redaction.revealed {
-            background-color: transparent;
-            color: #000;
-            display: inline;
-            min-width: auto;
-            width: auto;
-            height: auto;
-            margin: 0;
-            padding: 0;
+        .load-more-btn {
+            padding: 10px 16px;
+            margin: 16px;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid var(--gray-700);
+            background: var(--white);
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+            width: calc(100% - 32px);
         }
 
-        /* No spacing between dreams - back to back */
-        .dream + .dream {
-            margin-top: 0;
-            padding-top: 0;
+        .load-more-btn:hover {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gray-700);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-600);
         }
     </style>
 </head>
 <body>
-    <div class="container" id="dreams-container">
-        <p>Loading dreams...</p>
+    <div class="header">
+        <div class="header-top">
+            <div class="logo">Dream Lexicon</div>
+            <div class="header-stats">
+                <span>patterns <span class="stat-value" id="total-patterns">—</span></span>
+                <span>dreams <span class="stat-value" id="total-dreams">—</span></span>
+            </div>
+        </div>
+        <div class="universal-controls">
+            <div class="search-container">
+                <input type="text" class="universal-search" placeholder="Search all patterns..." id="universal-search">
+            </div>
+            <div class="sort-controls">
+                <span class="sort-label">Sort</span>
+                <button class="universal-sort-btn active" data-sort="alpha">A–Z</button>
+                <button class="universal-sort-btn" data-sort="freq">Frequency</button>
+            </div>
+        </div>
     </div>
 
+    <div class="columns-container">
+        <div class="column" data-pattern="adj_noun">
+            <div class="column-header">
+                <div class="column-title">Adj–Noun</div>
+                <div class="column-count" id="count-adj_noun">—</div>
+            </div>
+            <div class="items-list" id="list-adj_noun"></div>
+            <div class="dreams-view" id="dreams-adj_noun"></div>
+        </div>
+
+        <div class="column" data-pattern="verb_noun">
+            <div class="column-header">
+                <div class="column-title">Verb–Noun</div>
+                <div class="column-count" id="count-verb_noun">—</div>
+            </div>
+            <div class="items-list" id="list-verb_noun"></div>
+            <div class="dreams-view" id="dreams-verb_noun"></div>
+        </div>
+
+        <div class="column" data-pattern="prep">
+            <div class="column-header">
+                <div class="column-title">Prepositional</div>
+                <div class="column-count" id="count-prep">—</div>
+            </div>
+            <div class="items-list" id="list-prep"></div>
+            <div class="dreams-view" id="dreams-prep"></div>
+        </div>
+
+        <div class="column" data-pattern="adverb_verb">
+            <div class="column-header">
+                <div class="column-title">Adverb–Verb</div>
+                <div class="column-count" id="count-adverb_verb">—</div>
+            </div>
+            <div class="items-list" id="list-adverb_verb"></div>
+            <div class="dreams-view" id="dreams-adverb_verb"></div>
+        </div>
+
+        <div class="column" data-pattern="temporal">
+            <div class="column-header">
+                <div class="column-title">Temporal</div>
+                <div class="column-count" id="count-temporal">—</div>
+            </div>
+            <div class="items-list" id="list-temporal"></div>
+            <div class="dreams-view" id="dreams-temporal"></div>
+        </div>
+
+        <div class="column" data-pattern="compound">
+            <div class="column-header">
+                <div class="column-title">Compound</div>
+                <div class="column-count" id="count-compound">—</div>
+            </div>
+            <div class="items-list" id="list-compound"></div>
+            <div class="dreams-view" id="dreams-compound"></div>
+        </div>
+
+        <div class="column" data-pattern="emotional">
+            <div class="column-header">
+                <div class="column-title">Emotional</div>
+                <div class="column-count" id="count-emotional">—</div>
+            </div>
+            <div class="items-list" id="list-emotional"></div>
+            <div class="dreams-view" id="dreams-emotional"></div>
+        </div>
+    </div>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <script>
-        const AVG_CHAR_WIDTH = 7;
+        // ======= CONFIGURATION =======
+        // Replace these with your Supabase project credentials
+        const SUPABASE_URL = 'https://ldpxwjzqaraehwvybiqe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcHh3anpxYXJhZWh3dnliaXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODEwMDAsImV4cCI6MjA4MDM1NzAwMH0.9N7ml2HWY0I3KZ4PEGoyCqnMKRJGzYUcX6g_HuBwIgU';
         
-        function createRedaction(text) {
-            const span = document.createElement('span');
-            span.className = 'redaction';
-            span.setAttribute('data-text', text);
-            
-            const approximateWidth = text.length * AVG_CHAR_WIDTH;
-            span.style.width = `${Math.max(8, approximateWidth)}px`;
-            
-            span.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (span.classList.contains('revealed')) {
-                    span.classList.remove('revealed');
-                    span.textContent = '';
-                } else {
-                    span.classList.add('revealed');
-                    span.textContent = text;
-                }
-            });
-            
-            return span;
-        }
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ======= STATE =======
+        const ITEMS_PER_PAGE = 5000; // Load in chunks for infinite scroll
+        let universalSort = 'alpha';
+        let universalSearch = '';
+        let blacklist = {
+            adj_noun: new Set(),
+            verb_noun: new Set(),
+            prep: new Set(),
+            adverb_verb: new Set(),
+            temporal: new Set(),
+            compound: new Set(),
+            emotional: new Set()
+        };
+        
+        let columnData = {
+            adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            verb_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            prep: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            adverb_verb: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            temporal: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            compound: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
+            emotional: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 }
+        };
 
-        function renderDream(dream) {
-            const dreamDiv = document.createElement('div');
-            dreamDiv.className = 'dream';
-            dreamDiv.dataset.dreamId = dream.id;
-            
-            const text = dream.text;
-            const visibleRanges = dream.visible_ranges || [];
-            
-            if (visibleRanges.length === 0) {
-                const words = text.match(/\S+|\s+/g) || [];
-                words.forEach(word => {
-                    dreamDiv.appendChild(createRedaction(word));
-                });
-            } else {
-                const sortedRanges = visibleRanges.sort((a, b) => a[0] - b[0]);
-                
-                let lastPos = 0;
-                const fragment = document.createDocumentFragment();
-                
-                for (const [start, end] of sortedRanges) {
-                    if (start > lastPos) {
-                        const hiddenText = text.substring(lastPos, start);
-                        const words = hiddenText.match(/\S+|\s+/g) || [];
-                        words.forEach(word => {
-                            fragment.appendChild(createRedaction(word));
-                        });
-                    }
-                    
-                    const visibleText = text.substring(start, end);
-                    const visibleSpan = document.createElement('span');
-                    visibleSpan.className = 'visible-text';
-                    visibleSpan.textContent = visibleText;
-                    fragment.appendChild(visibleSpan);
-                    
-                    lastPos = end;
-                }
-                
-                if (lastPos < text.length) {
-                    const remainingText = text.substring(lastPos);
-                    const words = remainingText.match(/\S+|\s+/g) || [];
-                    words.forEach(word => {
-                        fragment.appendChild(createRedaction(word));
+        // ======= BLACKLIST =======
+        function loadBlacklist() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    Object.keys(parsed).forEach(pattern => {
+                        parsed[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
                     });
-                }
-                
-                dreamDiv.appendChild(fragment);
-            }
-            
-            return dreamDiv;
-        }
-
-        function renderAllDreams(dreams) {
-            const container = document.getElementById('dreams-container');
-            container.innerHTML = '';
-            
-            let index = 0;
-            const batchSize = 50;
-            
-            function renderBatch() {
-                const end = Math.min(index + batchSize, dreams.length);
-                const fragment = document.createDocumentFragment();
-                
-                for (let i = index; i < end; i++) {
-                    const dreamElement = renderDream(dreams[i]);
-                    fragment.appendChild(dreamElement);
-                }
-                
-                container.appendChild(fragment);
-                index = end;
-                
-                if (index < dreams.length) {
-                    requestAnimationFrame(renderBatch);
+                } catch (e) {
+                    console.error('Error loading blacklist:', e);
                 }
             }
-            
-            renderBatch();
         }
 
-        fetch('dreams_processed.json')
-            .then(response => response.json())
-            .then(dreams => {
-                renderAllDreams(dreams);
-            })
-            .catch(error => {
-                console.error('Error loading dreams:', error);
-                document.getElementById('dreams-container').innerHTML = 
-                    '<p>Error loading dreams. Please run process_dreams.py first to generate dreams_processed.json</p>';
+        function hideItem(pattern, phrase) {
+            blacklist[pattern].add(phrase.toLowerCase());
+            
+            const blacklistObj = {};
+            Object.keys(blacklist).forEach(p => {
+                blacklistObj[p] = Array.from(blacklist[p]);
             });
+            localStorage.setItem('dreambank_blacklist', JSON.stringify(blacklistObj));
+            
+            // Remove from DOM
+            const listEl = document.getElementById(`list-${pattern}`);
+            const items = listEl.querySelectorAll('.item');
+            items.forEach(item => {
+                if (item.querySelector('.item-text').textContent.toLowerCase() === phrase.toLowerCase()) {
+                    item.remove();
+                }
+            });
+        }
+
+        // ======= SUPABASE QUERIES =======
+        async function getTotalDreamsCount() {
+            const { count, error } = await supabase
+                .from('dreams')
+                .select('*', { count: 'exact', head: true });
+            
+            if (error) {
+                console.error('Error fetching dreams count:', error);
+                return 0;
+            }
+            return count;
+        }
+
+        async function getPatternsByType(patternType, sortBy = 'alpha', searchQuery = '', limit = ITEMS_PER_PAGE, offset = 0) {
+            // Query patterns table - load ALL patterns for this type
+            const allData = [];
+            let page = 0;
+            const pageSize = 1000;
+            
+            while (true) {
+                const { data, error } = await supabase
+                    .from('patterns')
+                    .select('text')
+                    .eq('pattern_type', patternType)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                
+                if (error) {
+                    console.error('Error fetching patterns:', error);
+                    break;
+                }
+                
+                if (!data || data.length === 0) break;
+                allData.push(...data);
+                if (data.length < pageSize) break;
+                page++;
+            }
+            
+            const data = allData;
+            const error = null;
+            
+            if (error) {
+                console.error('Error fetching patterns:', error);
+                return [];
+            }
+            
+            // Filter and count
+            const countMap = new Map();
+            data.forEach(row => {
+                const text = row.text.toLowerCase();
+                // Skip if starts with number or dash
+                if (/^[0-9-]/.test(text)) return;
+                // Skip if blacklisted
+                if (blacklist[patternType].has(text)) return;
+                // Skip if doesn't match search
+                if (searchQuery && !text.includes(searchQuery.toLowerCase())) return;
+                
+                countMap.set(row.text, (countMap.get(row.text) || 0) + 1);
+            });
+            
+            // Convert to array
+            let results = Array.from(countMap.entries()).map(([text, count]) => ({ text, count }));
+            
+            // Sort
+            if (sortBy === 'freq') {
+                results.sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
+            } else {
+                results.sort((a, b) => a.text.localeCompare(b.text));
+            }
+            
+            // Paginate
+            return results.slice(offset, offset + limit);
+        }
+
+        async function getTotalPatternCount(patternType) {
+            // Query patterns table directly
+            const { data, error } = await supabase
+                .from('patterns')
+                .select('text', { count: 'exact', head: false })
+                .eq('pattern_type', patternType);
+            
+            if (error) {
+                console.error('Error fetching pattern count:', error);
+                return 0;
+            }
+            
+            // Count unique texts
+            const uniqueTexts = new Set(data.map(p => p.text));
+            return uniqueTexts.size;
+        }
+
+        async function getDreamsByPattern(patternType, phrase, limit = 100) {
+            const { data, error } = await supabase
+                .from('patterns')
+                .select(`
+                    dream_id,
+                    start_pos,
+                    end_pos,
+                    dreams (
+                        id,
+                        text
+                    )
+                `)
+                .eq('pattern_type', patternType)
+                .ilike('text', phrase)
+                .limit(limit);
+            
+            if (error) {
+                console.error('Error fetching dreams:', error);
+                return [];
+            }
+            
+            // Transform to expected format
+            return data.map(row => ({
+                id: row.dreams.id,
+                text: row.dreams.text,
+                start_pos: row.start_pos,
+                end_pos: row.end_pos
+            }));
+        }
+
+        // ======= RENDERING =======
+        async function loadColumn(pattern, append = false) {
+            const listEl = document.getElementById(`list-${pattern}`);
+            
+            if (!append) {
+                listEl.innerHTML = '<div class="loading-indicator">Loading patterns...</div>';
+                columnData[pattern].offset = 0;
+                columnData[pattern].patterns = [];
+                columnData[pattern].hasMore = true;
+            }
+            
+            try {
+                const patterns = await getPatternsByType(
+                    pattern, 
+                    universalSort, 
+                    universalSearch, 
+                    ITEMS_PER_PAGE, 
+                    columnData[pattern].offset
+                );
+                
+                columnData[pattern].patterns.push(...patterns);
+                columnData[pattern].offset += patterns.length;
+                columnData[pattern].hasMore = patterns.length === ITEMS_PER_PAGE;
+                columnData[pattern].loaded = true;
+                columnData[pattern].loading = false;
+                
+                renderPatternList(pattern, columnData[pattern].patterns, append);
+                
+                // Update count
+                if (!append) {
+                    const totalCount = await getTotalPatternCount(pattern);
+                    document.getElementById(`count-${pattern}`).textContent = totalCount.toLocaleString();
+                }
+            } catch (error) {
+                console.error(`Error loading column ${pattern}:`, error);
+                listEl.innerHTML = '<div class="loading-indicator">Error loading patterns</div>';
+            }
+        }
+
+        function renderPatternList(pattern, patterns, append = false) {
+            const listEl = document.getElementById(`list-${pattern}`);
+            
+            if (!append) {
+                listEl.innerHTML = '';
+                
+                // Set up scroll listener once
+                if (!listEl._scrollHandler) {
+                    listEl._scrollHandler = () => {
+                        const scrollBottom = listEl.scrollTop + listEl.clientHeight;
+                        const threshold = listEl.scrollHeight - 100;
+                        
+                        if (scrollBottom >= threshold && columnData[pattern].hasMore && !columnData[pattern].loading) {
+                            console.log(`Auto-loading more ${pattern}... (showing ${columnData[pattern].lastRendered}/${columnData[pattern].patterns.length})`);
+                            columnData[pattern].loading = true;
+                            
+                            // Load more from already-fetched data
+                            setTimeout(() => {
+                                loadColumn(pattern, true);
+                            }, 100);
+                        }
+                    };
+                    listEl.addEventListener('scroll', listEl._scrollHandler);
+                    console.log(`Scroll handler attached to ${pattern}`);
+                }
+            } else {
+                // Remove the old load more button
+                const oldBtn = listEl.querySelector('button');
+                if (oldBtn) oldBtn.remove();
+            }
+            
+            // Determine which patterns to render
+            const startIdx = append ? columnData[pattern].lastRendered || 0 : 0;
+            const patternsToRender = patterns.slice(startIdx);
+            
+            patternsToRender.forEach(({ text, count }) => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                
+                const textEl = document.createElement('div');
+                textEl.className = 'item-text';
+                textEl.textContent = text;
+                
+                const countEl = document.createElement('div');
+                countEl.className = 'item-count';
+                countEl.textContent = count;
+                
+                const hideBtn = document.createElement('button');
+                hideBtn.className = 'hide-btn';
+                hideBtn.textContent = 'Hide';
+                hideBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    hideItem(pattern, text);
+                });
+                
+                div.appendChild(textEl);
+                div.appendChild(countEl);
+                div.appendChild(hideBtn);
+                
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const anyExpanded = document.querySelector('.column.expanded');
+                    if (anyExpanded) {
+                        collapseAll();
+                        setTimeout(() => expandColumn(pattern, text), 50);
+                    } else {
+                        expandColumn(pattern, text);
+                    }
+                });
+                
+                listEl.appendChild(div);
+            });
+            
+            columnData[pattern].lastRendered = patterns.length;
+            
+            // Add loading indicator if there's more to load
+            if (columnData[pattern].hasMore) {
+                const indicator = document.createElement('div');
+                indicator.style.padding = '16px';
+                indicator.style.textAlign = 'center';
+                indicator.style.fontSize = '8px';
+                indicator.style.color = 'var(--gray-400)';
+                indicator.textContent = `${columnData[pattern].lastRendered}/${columnData[pattern].patterns.length} • Scroll for more`;
+                listEl.appendChild(indicator);
+            } else if (columnData[pattern].patterns.length > 0) {
+                const indicator = document.createElement('div');
+                indicator.style.padding = '16px';
+                indicator.style.textAlign = 'center';
+                indicator.style.fontSize = '8px';
+                indicator.style.color = 'var(--gray-400)';
+                indicator.textContent = `All ${columnData[pattern].patterns.length} loaded`;
+                listEl.appendChild(indicator);
+            }
+        }
+
+        async function loadAllColumns() {
+            const patterns = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
+            await Promise.all(patterns.map(p => loadColumn(p)));
+        }
+
+        function collapseAll() {
+            const columns = document.querySelectorAll('.column');
+            columns.forEach(col => {
+                col.classList.remove('expanded', 'collapsed', 'active');
+            });
+        }
+
+        async function expandColumn(pattern, selectedItem) {
+            const columns = document.querySelectorAll('.column');
+            const selectedColumn = document.querySelector(`.column[data-pattern="${pattern}"]`);
+            
+            columns.forEach(col => {
+                col.classList.remove('expanded', 'active');
+                col.classList.add('collapsed');
+            });
+            
+            selectedColumn.classList.remove('collapsed');
+            selectedColumn.classList.add('expanded', 'active');
+            
+            await displayDreams(pattern, selectedItem);
+        }
+
+        async function displayDreams(pattern, phrase) {
+            const viewEl = document.getElementById(`dreams-${pattern}`);
+            viewEl.innerHTML = '<div class="loading-indicator">Loading dreams...</div>';
+            
+            try {
+                const dreams = await getDreamsByPattern(pattern, phrase);
+                
+                let html = `
+                    <div class="back-button" onclick="collapseAll()">← BACK TO ALL COLUMNS</div>
+                    <div class="dreams-header">
+                        <div class="selected-phrase">${escapeHtml(phrase)}</div>
+                        <div class="dreams-meta">${dreams.length} DREAM${dreams.length !== 1 ? 'S' : ''}</div>
+                    </div>
+                `;
+                
+                dreams.forEach(dream => {
+                    const highlighted = highlightPhrase(dream.text, phrase);
+                    html += `
+                        <div class="dream-card">
+                            <div class="dream-card-header">
+                                <span class="dream-label">Dream</span>
+                                <span class="dream-id">#${(dream.id + 1).toString().padStart(5, '0')}</span>
+                            </div>
+                            <div class="dream-text">${highlighted}</div>
+                        </div>
+                    `;
+                });
+                
+                viewEl.innerHTML = html;
+                viewEl.scrollTop = 0;
+            } catch (error) {
+                console.error('Error displaying dreams:', error);
+                viewEl.innerHTML = '<div class="loading-indicator">Error loading dreams</div>';
+            }
+        }
+
+        function highlightPhrase(text, phrase) {
+            const escaped = escapeHtml(text);
+            const lower = text.toLowerCase();
+            const lowerPhrase = phrase.toLowerCase();
+            const parts = [];
+            let lastIdx = 0;
+            let idx = lower.indexOf(lowerPhrase);
+            
+            while (idx !== -1) {
+                if (idx > lastIdx) parts.push(escaped.substring(lastIdx, idx));
+                const match = text.substring(idx, idx + phrase.length);
+                parts.push(`<span class="highlight">${escapeHtml(match)}</span>`);
+                lastIdx = idx + phrase.length;
+                idx = lower.indexOf(lowerPhrase, lastIdx);
+            }
+            
+            if (lastIdx < escaped.length) parts.push(escaped.substring(lastIdx));
+            return parts.join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ======= EVENT HANDLERS =======
+        document.querySelectorAll('.column-header').forEach(header => {
+            header.addEventListener('click', function(e) {
+                const anyExpanded = document.querySelector('.column.expanded');
+                if (anyExpanded) {
+                    collapseAll();
+                }
+            });
+        });
+
+        document.getElementById('universal-search').addEventListener('input', function(e) {
+            const anyExpanded = document.querySelector('.column.expanded');
+            if (anyExpanded) {
+                collapseAll();
+            }
+            universalSearch = e.target.value;
+            // Reload all columns with search
+            Object.keys(columnData).forEach(pattern => {
+                columnData[pattern].loaded = false;
+                columnData[pattern].offset = 0;
+                columnData[pattern].patterns = [];
+                columnData[pattern].hasMore = true;
+            });
+            loadAllColumns();
+        });
+
+        document.querySelectorAll('.universal-sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const anyExpanded = document.querySelector('.column.expanded');
+                if (anyExpanded) {
+                    collapseAll();
+                }
+                universalSort = this.dataset.sort;
+                document.querySelectorAll('.universal-sort-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                // Reload all columns with new sort
+                Object.keys(columnData).forEach(pattern => {
+                    columnData[pattern].loaded = false;
+                    columnData[pattern].offset = 0;
+                    columnData[pattern].patterns = [];
+                    columnData[pattern].hasMore = true;
+                });
+                loadAllColumns();
+            });
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                collapseAll();
+            }
+        });
+
+        // Export blacklist to save permanently
+        window.exportBlacklist = function() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (!stored) {
+                console.log('No items hidden yet!');
+                return;
+            }
+            
+            const parsed = JSON.parse(stored);
+            console.log('\n=== COPY THIS TO blacklist.json ===\n');
+            console.log(JSON.stringify(parsed, null, 2));
+            console.log('\n=== END ===\n');
+            console.log('Save this to blacklist.json in your project folder to make it permanent.');
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2))
+                    .then(() => console.log('✓ Also copied to clipboard!'))
+                    .catch(() => console.log('(Could not copy to clipboard automatically)'));
+            }
+            
+            return parsed;
+        };
+
+        window.showBlacklistStats = function() {
+            const stored = localStorage.getItem('dreambank_blacklist');
+            if (!stored) {
+                console.log('No items hidden yet!');
+                return;
+            }
+            
+            const parsed = JSON.parse(stored);
+            console.log('\n=== HIDDEN ITEMS ===');
+            Object.keys(parsed).forEach(pattern => {
+                if (parsed[pattern].length > 0) {
+                    console.log(`${pattern}: ${parsed[pattern].length} items`);
+                    parsed[pattern].forEach(item => console.log(`  - ${item}`));
+                }
+            });
+            console.log('=== END ===\n');
+            console.log('To make permanent, run: exportBlacklist()');
+        };
+
+        // ======= INITIALIZATION =======
+        async function init() {
+            // Check if Supabase is configured
+            if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+                alert('Please configure your Supabase credentials in the HTML file. See the README for instructions.');
+                return;
+            }
+            
+            loadBlacklist();
+            
+            // Load total dreams count
+            const totalDreams = await getTotalDreamsCount();
+            document.getElementById('total-dreams').textContent = totalDreams.toLocaleString();
+            
+            // Load all columns
+            await loadAllColumns();
+            
+            // Calculate total patterns
+            const patternTypes = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
+            let totalPatterns = 0;
+            for (const pattern of patternTypes) {
+                const count = await getTotalPatternCount(pattern);
+                totalPatterns += count;
+            }
+            document.getElementById('total-patterns').textContent = totalPatterns.toLocaleString();
+        }
+
+        // Start the app
+        init().catch(error => {
+            console.error('Error initializing app:', error);
+            alert('Error connecting to database. Please check your Supabase configuration and console for details.');
+        });
     </script>
 </body>
 </html>
