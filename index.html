@@ -772,11 +772,8 @@
                 
                 renderPatternList(pattern, columnData[pattern].patterns, append);
                 
-                // Update count
-                if (!append) {
-                    const totalCount = await getTotalPatternCount(pattern);
-                    document.getElementById(`count-${pattern}`).textContent = totalCount.toLocaleString();
-                }
+                // Update count with actual filtered count
+                document.getElementById(`count-${pattern}`).textContent = columnData[pattern].patterns.length.toLocaleString();
             } catch (error) {
                 console.error(`Error loading column ${pattern}:`, error);
                 listEl.innerHTML = '<div class="loading-indicator">Error loading patterns</div>';
