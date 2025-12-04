@@ -581,7 +581,8 @@
         };
 
         // ======= BLACKLIST =======
-        function loadBlacklist() {
+        async function loadBlacklist() {
+            // Load from localStorage first
             const stored = localStorage.getItem('dreambank_blacklist');
             if (stored) {
                 try {
@@ -590,8 +591,24 @@
                         parsed[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
                     });
                 } catch (e) {
-                    console.error('Error loading blacklist:', e);
+                    console.error('Error loading localStorage blacklist:', e);
                 }
+            }
+            
+            // Then load from blacklist.json
+            try {
+                const response = await fetch('blacklist.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    Object.keys(data).forEach(pattern => {
+                        if (data[pattern] && Array.isArray(data[pattern])) {
+                            data[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
+                        }
+                    });
+                    console.log('Loaded blacklist from blacklist.json');
+                }
+            } catch (err) {
+                console.log('No blacklist.json found or error loading it:', err);
             }
         }
 
@@ -1059,7 +1076,7 @@
                 return;
             }
             
-            loadBlacklist();
+            await loadBlacklist();
             
             // Load total dreams count
             const totalDreams = await getTotalDreamsCount();
