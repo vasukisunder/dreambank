@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Poetry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .magnet {
+            position: absolute;
+            padding: 8px 14px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 4px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            cursor: move;
+            user-select: none;
+            font-size: 14px;
+            line-height: 1.4;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .magnet:hover {
+            transform: scale(1.05);
+            box-shadow: 3px 3px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .magnet.dragging {
+            opacity: 0.8;
+            cursor: grabbing;
+            z-index: 9999;
+        }
+
+        .magnet.adj-noun { background: #ffcdd2; border-color: #c62828; }
+        .magnet.verb-noun { background: #c5e1a5; border-color: #558b2f; }
+        .magnet.prep { background: #bbdefb; border-color: #1565c0; }
+        .magnet.adverb-verb { background: #fff9c4; border-color: #f57f17; }
+        .magnet.compound { background: #d1c4e9; border-color: #4527a0; }
+        .magnet.temporal { background: #ffccbc; border-color: #d84315; }
+        .magnet.emotional { background: #f8bbd0; border-color: #ad1457; }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10000;
+        }
+
+        .controls button {
+            padding: 12px 24px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: 2px solid #333;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover {
+            background: #333;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 3px 3px 12px rgba(0,0,0,0.3);
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            color: #666;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: 2px solid #333;
+            background: white;
+            color: #333;
+            text-decoration: none;
+            border-radius: 4px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            z-index: 10000;
+        }
+
+        .back-link:hover {
+            background: #333;
+            color: white;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Back to Lexicon</a>
+    
+    <div id="poetry-space"></div>
+    
+    <div class="controls">
+        <button onclick="randomizePoetry()">Randomize</button>
+        <button onclick="clearAll()">Clear All</button>
+    </div>
+
+    <div class="loading" id="loading">Loading poetry fragments...</div>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // ======= CONFIGURATION =======
+        const SUPABASE_URL = 'https://ldpxwjzqaraehwvybiqe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcHh3anpxYXJhZWh3dnliaXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODEwMDAsImV4cCI6MjA4MDM1NzAwMH0.9N7ml2HWY0I3KZ4PEGoyCqnMKRJGzYUcX6g_HuBwIgU';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Pattern counts for random selection
+        const PATTERN_COUNTS = {
+            adj_noun: 35,
+            verb_noun: 25,
+            prep: 15,
+            adverb_verb: 12,
+            compound: 10,
+            temporal: 5,
+            emotional: 3
+        };
+
+        let magnets = [];
+        let draggedElement = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        // ======= DRAG AND DROP =======
+        function makeDraggable(element) {
+            element.addEventListener('mousedown', startDrag);
+            element.addEventListener('touchstart', startDrag);
+        }
+
+        function startDrag(e) {
+            e.preventDefault();
+            draggedElement = this;
+            draggedElement.classList.add('dragging');
+            
+            const touch = e.type === 'touchstart' ? e.touches[0] : e;
+            const rect = draggedElement.getBoundingClientRect();
+            offsetX = touch.clientX - rect.left;
+            offsetY = touch.clientY - rect.top;
+            
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function drag(e) {
+            if (!draggedElement) return;
+            e.preventDefault();
+            
+            const touch = e.type === 'touchmove' ? e.touches[0] : e;
+            const x = touch.clientX - offsetX;
+            const y = touch.clientY - offsetY;
+            
+            draggedElement.style.left = Math.max(0, Math.min(x, window.innerWidth - draggedElement.offsetWidth)) + 'px';
+            draggedElement.style.top = Math.max(0, Math.min(y, window.innerHeight - draggedElement.offsetHeight)) + 'px';
+        }
+
+        function endDrag() {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', endDrag);
+        }
+
+        // ======= SUPABASE QUERIES =======
+        async function getRandomPatterns(patternType, count) {
+            // Get total count first
+            const { data: allData, error } = await supabase
+                .from('patterns')
+                .select('text, dream_id')
+                .eq('pattern_type', patternType);
+            
+            if (error || !allData || allData.length === 0) {
+                console.error(`Error fetching ${patternType}:`, error);
+                return [];
+            }
+
+            // Get unique patterns (lowercase)
+            const uniqueMap = new Map();
+            allData.forEach(row => {
+                const textLower = row.text.toLowerCase();
+                // Filter out numbers and dashes
+                if (/^[0-9-]/.test(textLower)) return;
+                
+                if (!uniqueMap.has(textLower)) {
+                    uniqueMap.set(textLower, { text: row.text, dream_id: row.dream_id });
+                }
+            });
+
+            const uniquePatterns = Array.from(uniqueMap.values());
+            
+            // Shuffle and take random count
+            const shuffled = uniquePatterns.sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, Math.min(count, shuffled.length));
+        }
+
+        // ======= MAGNET CREATION =======
+        function createMagnet(text, patternType, dreamId) {
+            const magnet = document.createElement('div');
+            magnet.className = `magnet ${patternType}`;
+            magnet.textContent = text;
+            magnet.dataset.dreamId = dreamId;
+            magnet.dataset.patternType = patternType;
+            
+            // Random position (avoid edges)
+            const margin = 50;
+            const maxX = window.innerWidth - 200 - margin;
+            const maxY = window.innerHeight - 100 - margin;
+            magnet.style.left = (margin + Math.random() * maxX) + 'px';
+            magnet.style.top = (margin + Math.random() * maxY) + 'px';
+            
+            makeDraggable(magnet);
+            return magnet;
+        }
+
+        // ======= MAIN FUNCTIONS =======
+        async function randomizePoetry() {
+            document.getElementById('loading').style.display = 'block';
+            clearAll();
+            
+            try {
+                const container = document.getElementById('poetry-space');
+                
+                // Fetch patterns for each type
+                for (const [patternType, count] of Object.entries(PATTERN_COUNTS)) {
+                    const patterns = await getRandomPatterns(patternType, count);
+                    
+                    patterns.forEach(({ text, dream_id }) => {
+                        const magnet = createMagnet(text, patternType, dream_id);
+                        container.appendChild(magnet);
+                        magnets.push(magnet);
+                    });
+                }
+                
+                console.log(`Loaded ${magnets.length} poetry fragments`);
+            } catch (error) {
+                console.error('Error loading poetry:', error);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function clearAll() {
+            const container = document.getElementById('poetry-space');
+            container.innerHTML = '';
+            magnets = [];
+        }
+
+        // ======= INITIALIZATION =======
+        window.addEventListener('load', () => {
+            randomizePoetry();
+        });
+
+        // Prevent text selection while dragging
+        document.addEventListener('selectstart', (e) => {
+            if (draggedElement) e.preventDefault();
+        });
+    </script>
+</body>
+</html>
+
