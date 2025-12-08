@@ -1135,11 +1135,14 @@
             const patterns = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
             
             // Start animation immediately with estimates
-            let estimatedPatterns = 354231;
+            let estimatedPatterns = 306942;
             let estimatedDreams = 38194;
             
             // Start smooth animation right away
             startLoadingAnimation(estimatedPatterns, estimatedDreams, 4000);
+            
+            // Set the pattern count in header (hardcoded - actual count from database)
+            document.getElementById('total-patterns').textContent = estimatedPatterns.toLocaleString();
             
             // Fetch dream count (non-blocking)
             supabase
@@ -1154,10 +1157,6 @@
             
             // Load all columns
             await Promise.all(patterns.map(p => loadColumn(p)));
-            
-            // Update header with actual total from loaded columns
-            const actualTotal = patterns.reduce((sum, p) => sum + (columnData[p].total || 0), 0);
-            document.getElementById('total-patterns').textContent = actualTotal.toLocaleString();
             
             // Mark data as loaded
             loadingStats.dataLoaded = true;
@@ -1352,21 +1351,8 @@
             
             await loadBlacklist();
             
-            // Load total dreams count
-            const totalDreams = await getTotalDreamsCount();
-            document.getElementById('total-dreams').textContent = totalDreams.toLocaleString();
-            
-            // Load all columns
+            // Load all columns (this will set the counts)
             await loadAllColumns();
-            
-            // Calculate total patterns
-            const patternTypes = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
-            let totalPatterns = 0;
-            for (const pattern of patternTypes) {
-                const count = await getTotalPatternCount(pattern);
-                totalPatterns += count;
-            }
-            document.getElementById('total-patterns').textContent = totalPatterns.toLocaleString();
         }
 
         // Start the app
