@@ -540,40 +540,6 @@
 
         let universalSort = 'alpha';
         let universalSearch = '';
-        let blacklist = {
-            adj_noun: new Set(),
-            verb_noun: new Set(),
-            prep: new Set(),
-            adverb_verb: new Set(),
-            temporal: new Set(),
-            compound: new Set(),
-            emotional: new Set()
-        };
-
-        function loadBlacklist() {
-            const stored = localStorage.getItem('dreambank_blacklist');
-            if (stored) {
-                try {
-                    const parsed = JSON.parse(stored);
-                    Object.keys(parsed).forEach(pattern => {
-                        parsed[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
-                    });
-                } catch (e) {
-                    console.error('Error loading localStorage blacklist:', e);
-                }
-            }
-
-            return fetch('blacklist.json')
-                .then(r => r.json())
-                .then(data => {
-                    Object.keys(data).forEach(pattern => {
-                        data[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
-                    });
-                })
-                .catch(err => {
-                    // No blacklist.json found (this is ok)
-                });
-        }
 
         function extractAllPatterns(dreams) {
             dreams.forEach(dream => {
@@ -588,7 +554,7 @@
 
             Object.keys(patternsData).forEach(pattern => {
                 const allItems = Array.from(patternsData[pattern].keys());
-                columnData[pattern].all = allItems.filter(item => !blacklist[pattern].has(item.toLowerCase()));
+                columnData[pattern].all = allItems;
                 columnData[pattern].filtered = [...columnData[pattern].all];
             });
 
@@ -664,17 +630,8 @@
                 count.className = 'item-count';
                 count.textContent = (map.get(item)?.length || 0);
                 
-                const hideBtn = document.createElement('button');
-                hideBtn.className = 'hide-btn';
-                hideBtn.textContent = 'Hide';
-                hideBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    hideItem(pattern, item);
-                });
-                
                 div.appendChild(text);
                 div.appendChild(count);
-                div.appendChild(hideBtn);
                 
                 div.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -695,19 +652,6 @@
             Object.keys(patternsData).forEach(pattern => renderColumn(pattern));
         }
 
-        function hideItem(pattern, phrase) {
-            blacklist[pattern].add(phrase.toLowerCase());
-            
-            const blacklistObj = {};
-            Object.keys(blacklist).forEach(p => {
-                blacklistObj[p] = Array.from(blacklist[p]);
-            });
-            localStorage.setItem('dreambank_blacklist', JSON.stringify(blacklistObj));
-            
-            columnData[pattern].all = columnData[pattern].all.filter(item => item.toLowerCase() !== phrase.toLowerCase());
-            
-            renderColumn(pattern);
-        }
 
         function expandColumn(pattern, selectedItem) {
             const columns = document.querySelectorAll('.column');
@@ -827,33 +771,7 @@
             }
         });
 
-        window.exportBlacklist = function() {
-            const stored = localStorage.getItem('dreambank_blacklist');
-            if (!stored) {
-                return;
-            }
-            
-            const parsed = JSON.parse(stored);
-            
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2));
-            }
-            
-            return parsed;
-        };
-
-        window.showBlacklistStats = function() {
-            const stored = localStorage.getItem('dreambank_blacklist');
-            if (!stored) {
-                return;
-            }
-            
-            const parsed = JSON.parse(stored);
-            return parsed;
-        };
-
-        loadBlacklist()
-            .then(() => fetch('dreams_processed.json'))
+        fetch('dreams_processed.json')
             .then(r => r.json())
             .then(dreams => extractAllPatterns(dreams))
             .catch(err => {
