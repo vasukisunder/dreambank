@@ -175,7 +175,7 @@
             -webkit-backdrop-filter: blur(20px);
             border-right: 1px solid rgba(255, 255, 255, 0.25);
         }
-        
+
         .column:last-child {
             border-right: none;
         }
@@ -820,7 +820,7 @@
             
             requestAnimationFrame(update);
         }
-
+        
         let columnData = {
             adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
             verb_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
@@ -840,7 +840,6 @@
             Object.keys(EMBEDDED_BLACKLIST).forEach(pattern => {
                 EMBEDDED_BLACKLIST[pattern].forEach(phrase => blacklist[pattern].add(phrase.toLowerCase()));
             });
-            console.log(`Loaded ${Object.values(EMBEDDED_BLACKLIST).flat().length} permanent blacklist items`);
             
             // Also load from localStorage for additional user-hidden items
             const stored = localStorage.getItem('dreambank_blacklist');
@@ -889,7 +888,6 @@
         }
 
         async function getPatternsByType(patternType, sortBy = 'alpha', searchQuery = '') {
-            console.log(`Loading patterns for ${patternType}...`);
             // Use the fast pattern_counts materialized view
             // Aggregate as we load to avoid stack overflow
             const aggregated = new Map();
@@ -903,29 +901,29 @@
                     let query = supabase
                         .from('pattern_counts')
                         .select('text_lower, display_text, count')
-                        .eq('pattern_type', patternType)
-                        .range(page * pageSize, (page + 1) * pageSize - 1);
-                    
+                    .eq('pattern_type', patternType)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                
                     const { data, error } = await query;
                     
-                    if (error) {
+                if (error) {
                         console.error(`Error fetching ${patternType} page ${page}:`, error);
                         if (page === 0) throw error;
-                        break;
-                    }
-                    
-                    if (!data || data.length === 0) break;
+                    break;
+                }
+                
+                if (!data || data.length === 0) break;
                     
                     // Process and aggregate immediately to avoid memory issues
-                    data.forEach(row => {
+            data.forEach(row => {
                         const text = row.text_lower;
-                        // Skip if starts with number or dash
-                        if (/^[0-9-]/.test(text)) return;
-                        // Skip if blacklisted
-                        if (blacklist[patternType].has(text)) return;
-                        // Skip if doesn't match search
-                        if (searchQuery && !text.includes(searchQuery.toLowerCase())) return;
-                        
+                // Skip if starts with number or dash
+                if (/^[0-9-]/.test(text)) return;
+                // Skip if blacklisted
+                if (blacklist[patternType].has(text)) return;
+                // Skip if doesn't match search
+                if (searchQuery && !text.includes(searchQuery.toLowerCase())) return;
+                
                         if (aggregated.has(text)) {
                             aggregated.get(text).count += row.count;
                         } else {
@@ -937,7 +935,6 @@
                     });
                     
                     totalRows += data.length;
-                    console.log(`Loaded page ${page} for ${patternType}: ${data.length} rows, aggregated: ${aggregated.size}`);
                     if (data.length < pageSize) break;
                     page++;
                 } catch (err) {
@@ -1071,7 +1068,6 @@
                         const threshold = listEl.scrollHeight - 100;
                         
                         if (scrollBottom >= threshold && columnData[pattern].hasMore && !columnData[pattern].loading) {
-                            console.log(`Auto-loading more ${pattern}... (showing ${columnData[pattern].lastRendered}/${columnData[pattern].patterns.length})`);
                             columnData[pattern].loading = true;
                             
                             // Load more from already-fetched data
@@ -1081,7 +1077,6 @@
                         }
                     };
                     listEl.addEventListener('scroll', listEl._scrollHandler);
-                    console.log(`Scroll handler attached to ${pattern}`);
                 }
             } else {
                 // Remove the old load more button
@@ -1303,20 +1298,13 @@
         window.exportBlacklist = function() {
             const stored = localStorage.getItem('dreambank_blacklist');
             if (!stored) {
-                console.log('No items hidden yet!');
                 return;
             }
             
             const parsed = JSON.parse(stored);
-            console.log('\n=== COPY THIS TO blacklist.json ===\n');
-            console.log(JSON.stringify(parsed, null, 2));
-            console.log('\n=== END ===\n');
-            console.log('Save this to blacklist.json in your project folder to make it permanent.');
             
             if (navigator.clipboard) {
-                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2))
-                    .then(() => console.log('✓ Also copied to clipboard!'))
-                    .catch(() => console.log('(Could not copy to clipboard automatically)'));
+                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2));
             }
             
             return parsed;
@@ -1325,20 +1313,11 @@
         window.showBlacklistStats = function() {
             const stored = localStorage.getItem('dreambank_blacklist');
             if (!stored) {
-                console.log('No items hidden yet!');
                 return;
             }
             
             const parsed = JSON.parse(stored);
-            console.log('\n=== HIDDEN ITEMS ===');
-            Object.keys(parsed).forEach(pattern => {
-                if (parsed[pattern].length > 0) {
-                    console.log(`${pattern}: ${parsed[pattern].length} items`);
-                    parsed[pattern].forEach(item => console.log(`  - ${item}`));
-                }
-            });
-            console.log('=== END ===\n');
-            console.log('To make permanent, run: exportBlacklist()');
+            return parsed;
         };
 
         // ======= INITIALIZATION =======

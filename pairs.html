@@ -571,7 +571,7 @@
                     });
                 })
                 .catch(err => {
-                    console.log('No blacklist.json found (this is ok)');
+                    // No blacklist.json found (this is ok)
                 });
         }
 
@@ -707,8 +707,6 @@
             columnData[pattern].all = columnData[pattern].all.filter(item => item.toLowerCase() !== phrase.toLowerCase());
             
             renderColumn(pattern);
-            
-            console.log(`Hidden: "${phrase}" from ${pattern}. Reload page to see it gone from all views.`);
         }
 
         function expandColumn(pattern, selectedItem) {
@@ -832,19 +830,13 @@
         window.exportBlacklist = function() {
             const stored = localStorage.getItem('dreambank_blacklist');
             if (!stored) {
-                console.log('No items hidden yet!');
                 return;
             }
             
             const parsed = JSON.parse(stored);
-            console.log('\n=== COPY THIS TO blacklist.json ===\n');
-            console.log(JSON.stringify(parsed, null, 2));
-            console.log('\n=== END ===\n');
             
             if (navigator.clipboard) {
-                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2))
-                    .then(() => console.log('✓ Also copied to clipboard!'))
-                    .catch(() => console.log('(Could not copy to clipboard automatically)'));
+                navigator.clipboard.writeText(JSON.stringify(parsed, null, 2));
             }
             
             return parsed;
@@ -853,19 +845,11 @@
         window.showBlacklistStats = function() {
             const stored = localStorage.getItem('dreambank_blacklist');
             if (!stored) {
-                console.log('No items hidden yet!');
                 return;
             }
             
             const parsed = JSON.parse(stored);
-            console.log('\n=== BLACKLIST STATS ===');
-            Object.keys(parsed).forEach(pattern => {
-                if (parsed[pattern].length > 0) {
-                    console.log(`${pattern}: ${parsed[pattern].length} items`);
-                    parsed[pattern].forEach(item => console.log(`  - ${item}`));
-                }
-            });
-            console.log('=== END ===\n');
+            return parsed;
         };
 
         loadBlacklist()
