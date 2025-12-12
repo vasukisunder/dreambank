@@ -451,115 +451,6 @@
             color: var(--text-primary);
         }
 
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(
-                180deg, 
-                rgba(232, 233, 237, 0.95) 0%, 
-                rgba(223, 224, 229, 0.95) 100%
-            );
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            transition: opacity 0.4s ease, visibility 0.4s ease;
-        }
-
-        .loading-overlay.hidden {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        .loading-spinner {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .loading-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: linear-gradient(120deg, rgba(210, 180, 230, 0.8), rgba(180, 210, 245, 0.8));
-            animation: pulse 1.4s ease-in-out infinite;
-        }
-
-        .loading-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .loading-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        .loading-text {
-            font-size: 14px;
-            color: var(--text-secondary);
-            font-weight: 500;
-            margin-bottom: 24px;
-        }
-
-        .loading-stats {
-            display: flex;
-            gap: 48px;
-        }
-
-        .loading-stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .loading-stat-value {
-            font-size: 32px;
-            font-weight: 600;
-            background: linear-gradient(120deg, rgba(210, 180, 230, 1), rgba(180, 210, 245, 1));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .loading-stat-label {
-            font-size: 12px;
-            color: var(--text-tertiary);
-            font-weight: 500;
-        }
-
-        .loading-progress {
-            width: 300px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 32px;
-        }
-
-        .loading-progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, rgba(210, 180, 230, 0.9), rgba(180, 210, 245, 0.9));
-            border-radius: 2px;
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-                opacity: 0.5;
-            }
-            50% {
-                transform: scale(1.3);
-                opacity: 1;
-            }
-        }
-
         .load-more-btn {
             padding: 10px 16px;
             margin: 16px;
@@ -599,28 +490,6 @@
     </style>
 </head>
 <body>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-        </div>
-        <div class="loading-text">loading dream lexicon...</div>
-        <div class="loading-stats">
-            <div class="loading-stat">
-                <span class="loading-stat-value" id="loadingPatterns">0</span>
-                <span class="loading-stat-label">patterns loaded</span>
-            </div>
-            <div class="loading-stat">
-                <span class="loading-stat-value" id="loadingDreams">0</span>
-                <span class="loading-stat-label">dreams indexed</span>
-            </div>
-        </div>
-        <div class="loading-progress">
-            <div class="loading-progress-bar" id="loadingProgressBar"></div>
-        </div>
-    </div>
-    
     <div class="header">
         <div class="header-top">
             <div class="logo">Dream Lexicon</div>
@@ -723,94 +592,6 @@
         const ITEMS_PER_PAGE = 1000; // Supabase limit per query
         let universalSort = 'alpha';
         let universalSearch = '';
-        
-        let loadingStats = {
-            actualPatterns: 0,
-            actualDreams: 0,
-            columnsLoaded: 0,
-            totalColumns: 7,
-            animationComplete: false,
-            dataLoaded: false
-        };
-
-        function startLoadingAnimation(estimatedPatterns, estimatedDreams, duration = 3000) {
-            const startTime = performance.now();
-            
-            const patternsEl = document.getElementById('loadingPatterns');
-            const dreamsEl = document.getElementById('loadingDreams');
-            const progressBar = document.getElementById('loadingProgressBar');
-            
-            function animate(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const easedProgress = easeOutCubic(progress);
-                
-                // Animate patterns count
-                if (patternsEl) {
-                    const currentPatterns = Math.floor(estimatedPatterns * easedProgress);
-                    patternsEl.textContent = currentPatterns.toLocaleString();
-                }
-                
-                // Animate dreams count
-                if (dreamsEl) {
-                    const currentDreams = Math.floor(estimatedDreams * easedProgress);
-                    dreamsEl.textContent = currentDreams.toLocaleString();
-                }
-                
-                // Animate progress bar
-                if (progressBar) {
-                    progressBar.style.width = (easedProgress * 100) + '%';
-                }
-                
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    loadingStats.animationComplete = true;
-                    checkLoadingComplete();
-                }
-            }
-            
-            requestAnimationFrame(animate);
-        }
-
-        function checkLoadingComplete() {
-            if (loadingStats.animationComplete) {
-                const loadingOverlay = document.getElementById('loadingOverlay');
-                if (loadingOverlay) {
-                    loadingOverlay.classList.add('hidden');
-                }
-            }
-        }
-
-        function updateActualLoadingStats(patterns) {
-            loadingStats.actualPatterns += patterns;
-            loadingStats.columnsLoaded++;
-        }
-
-        function easeOutCubic(t) {
-            return 1 - Math.pow(1 - t, 3);
-        }
-
-        function animateNumber(element, start, end, duration) {
-            const startTime = performance.now();
-            const diff = end - start;
-            
-            function update(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const easedProgress = easeOutCubic(progress);
-                const current = Math.floor(start + diff * easedProgress);
-                element.textContent = current.toLocaleString();
-                
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                } else {
-                    element.textContent = end.toLocaleString();
-                }
-            }
-            
-            requestAnimationFrame(update);
-        }
         
         let columnData = {
             adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
@@ -1120,11 +901,6 @@
                 renderPatternList(pattern, allPatterns, append);
                 
                 // Counts are now hardcoded in HTML, no need to update dynamically
-                
-                // Update loading stats during initial load
-                if (!append && document.getElementById('loadingOverlay') && !document.getElementById('loadingOverlay').classList.contains('hidden')) {
-                    updateActualLoadingStats(allPatterns.length);
-                }
             } catch (error) {
                 console.error(`Error loading column ${pattern}:`, error);
                 console.error('Error details:', error.message, error.stack);
@@ -1219,15 +995,9 @@
         async function loadAllColumns() {
             const patterns = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
             
-            // Start animation immediately with estimates
-            let estimatedPatterns = 306942;
-            let estimatedDreams = 38194;
-            
-            // Start smooth animation right away
-            startLoadingAnimation(estimatedPatterns, estimatedDreams, 4000);
-            
-            // Set the pattern count in header (hardcoded - actual count from database)
-            document.getElementById('total-patterns').textContent = estimatedPatterns.toLocaleString();
+            // Set the pattern count in header (hardcoded - total of all pattern types)
+            let totalPatterns = 55171 + 113103 + 145139 + 49161 + 5995 + 31111 + 4433;
+            document.getElementById('total-patterns').textContent = totalPatterns.toLocaleString();
             
             // Fetch dream count (non-blocking)
             supabase
@@ -1242,10 +1012,6 @@
             
             // Load all columns
             await Promise.all(patterns.map(p => loadColumn(p)));
-            
-            // Mark data as loaded
-            loadingStats.dataLoaded = true;
-            checkLoadingComplete();
         }
 
         function collapseAll() {
