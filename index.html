@@ -604,6 +604,7 @@
         const ITEMS_PER_PAGE = 1000; // Supabase limit per query
         let universalSort = 'alpha';
         let universalSearch = '';
+        let initialLoadComplete = false;
         
         let columnData = {
             adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
@@ -717,21 +718,61 @@
         }
 
         async function getDreamsByPattern(patternType, phrase, limit = 100) {
-            // Use ilike to get potential matches, then filter for exact match
-            // This is more efficient than fetching all patterns
-            const { data: patterns, error: patternsError } = await supabase
-                .from('patterns')
-                .select('id, dream_id, start_pos, end_pos, text')
-                .eq('pattern_type', patternType)
-                .ilike('text', phrase) // This will match phrases containing the text
-                .limit(1000); // Reasonable limit
+            // Escape special characters in phrase for PostgreSQL LIKE/ILIKE operators
+            const escapedPhrase = phrase.replace(/[%_\\]/g, '\\$&');
             
-            if (patternsError) {
-                console.error('Error fetching patterns:', patternsError);
-                return [];
+            // Query for exact case-insensitive match using ilike (no wildcards = exact match)
+            let patterns = [];
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    const response = await supabase
+                        .from('patterns')
+                        .select('id, dream_id, start_pos, end_pos, text')
+                        .eq('pattern_type', patternType)
+                        .ilike('text', escapedPhrase) // Exact case-insensitive match
+                        .limit(1000);
+                    
+                    if (response.error) {
+                        throw response.error;
+                    }
+                    
+                    patterns = response.data || [];
+                    break; // Success, exit retry loop
+                } catch (error) {
+                    retryCount++;
+                    console.warn(`Query attempt ${retryCount} failed:`, error);
+                    
+                    if (retryCount >= maxRetries) {
+                        // Final fallback: get all patterns for type and filter client-side
+                        console.warn('Using fallback: fetching all patterns for client-side filtering');
+                        try {
+                            const response = await supabase
+                                .from('patterns')
+                                .select('id, dream_id, start_pos, end_pos, text')
+                                .eq('pattern_type', patternType)
+                                .limit(5000);
+                            
+                            if (response.error) {
+                                console.error('Fallback query also failed:', response.error);
+                                return [];
+                            }
+                            patterns = response.data || [];
+                        } catch (fallbackError) {
+                            console.error('Fallback query error:', fallbackError);
+                            return [];
+                        }
+                        break;
+                    }
+                    
+                    // Wait before retry (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
+                }
             }
             
-            // Filter for exact case-insensitive match
+            // Filter for exact case-insensitive match (needed for fallback, redundant for exact ilike but harmless)
             const matchingPatterns = patterns.filter(p => p.text.toLowerCase() === phrase.toLowerCase());
             
             if (matchingPatterns.length === 0) {
@@ -966,6 +1007,10 @@
                 
                 div.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    // Prevent clicks while initial load is in progress
+                    if (!initialLoadComplete) {
+                        return;
+                    }
                     const anyExpanded = document.querySelector('.column.expanded');
                     if (anyExpanded) {
                         collapseAll();
@@ -1013,6 +1058,9 @@
             
             // Load all columns
             await Promise.all(patterns.map(p => loadColumn(p)));
+            
+            // Mark initial load as complete
+            initialLoadComplete = true;
         }
 
         function collapseAll() {
@@ -1042,7 +1090,24 @@
             viewEl.innerHTML = '<div class="loading-indicator">Loading dreams...</div>';
             
             try {
+                // Add a small delay to ensure database is ready if initial load just completed
+                if (!initialLoadComplete) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
                 const dreams = await getDreamsByPattern(pattern, phrase);
+                
+                if (!dreams || dreams.length === 0) {
+                    viewEl.innerHTML = `
+                        <div class="back-button" onclick="collapseAll()">← back to all columns</div>
+                        <div class="dreams-header">
+                            <div class="selected-phrase">${escapeHtml(phrase)}</div>
+                            <div class="dreams-meta">No dreams found</div>
+                        </div>
+                        <div style="padding: 20px; color: var(--text-secondary);">Try refreshing the page or selecting a different pattern.</div>
+                    `;
+                    return;
+                }
                 
                 let html = `
                     <div class="back-button" onclick="collapseAll()">← back to all columns</div>
