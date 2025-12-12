@@ -651,11 +651,6 @@
                     return { results: [], total: 0, hasMore: false, dbRowsFetched: 0 };
                 }
                 
-                // Debug: Log what we're getting for temporal
-                if (patternType === 'temporal' && offset === 0) {
-                    console.log(`Temporal: Fetched ${data.length} rows from DB at offset ${offset}. First 5:`, data.slice(0, 5).map(r => r.display_text));
-                }
-                
                 // Filter out patterns starting with number or dash
                 // For temporal patterns, we want to keep text-based temporal words like "yesterday", "monday", etc.
                 // but filter out numeric dates, times, and other junk
@@ -668,20 +663,8 @@
                     // For all pattern types (including temporal), filter out patterns starting with numbers or dashes
                     // This removes date/time entries like "01-01", "05", "-", etc.
                     // but keeps legitimate temporal words like "yesterday", "monday", "january", etc.
-                    const passes = !/^[0-9-]/.test(text);
-                    
-                    // Debug: Log filtering for temporal
-                    if (patternType === 'temporal' && offset === 0 && data.indexOf(row) < 10) {
-                        console.log(`Temporal filter: "${row.display_text}" -> ${passes ? 'KEEP' : 'FILTER'}`);
-                    }
-                    
-                    return passes;
+                    return !/^[0-9-]/.test(text);
                 });
-                
-                // Debug: Log filtering results for temporal
-                if (patternType === 'temporal' && offset === 0) {
-                    console.log(`Temporal: Filtered ${data.length} rows -> ${filtered.length} valid results`);
-                }
                 
                 // Convert to results format
                 const results = filtered.map(row => ({
