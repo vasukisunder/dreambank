@@ -646,7 +646,7 @@
         <div class="column" data-pattern="adj_noun">
             <div class="column-header">
                 <div class="column-title">Adj–Noun</div>
-                <div class="column-count" id="count-adj_noun">—</div>
+                <div class="column-count" id="count-adj_noun">55,171</div>
             </div>
             <div class="items-list" id="list-adj_noun"></div>
             <div class="dreams-view" id="dreams-adj_noun"></div>
@@ -655,7 +655,7 @@
         <div class="column" data-pattern="verb_noun">
             <div class="column-header">
                 <div class="column-title">Verb–Noun</div>
-                <div class="column-count" id="count-verb_noun">—</div>
+                <div class="column-count" id="count-verb_noun">113,103</div>
             </div>
             <div class="items-list" id="list-verb_noun"></div>
             <div class="dreams-view" id="dreams-verb_noun"></div>
@@ -664,7 +664,7 @@
         <div class="column" data-pattern="prep">
             <div class="column-header">
                 <div class="column-title">Prepositional</div>
-                <div class="column-count" id="count-prep">—</div>
+                <div class="column-count" id="count-prep">145,139</div>
             </div>
             <div class="items-list" id="list-prep"></div>
             <div class="dreams-view" id="dreams-prep"></div>
@@ -673,7 +673,7 @@
         <div class="column" data-pattern="adverb_verb">
             <div class="column-header">
                 <div class="column-title">Adverb–Verb</div>
-                <div class="column-count" id="count-adverb_verb">—</div>
+                <div class="column-count" id="count-adverb_verb">49,161</div>
             </div>
             <div class="items-list" id="list-adverb_verb"></div>
             <div class="dreams-view" id="dreams-adverb_verb"></div>
@@ -682,7 +682,7 @@
         <div class="column" data-pattern="temporal">
             <div class="column-header">
                 <div class="column-title">Temporal</div>
-                <div class="column-count" id="count-temporal">—</div>
+                <div class="column-count" id="count-temporal">5,995</div>
             </div>
             <div class="items-list" id="list-temporal"></div>
             <div class="dreams-view" id="dreams-temporal"></div>
@@ -691,7 +691,7 @@
         <div class="column" data-pattern="compound">
             <div class="column-header">
                 <div class="column-title">Compound</div>
-                <div class="column-count" id="count-compound">—</div>
+                <div class="column-count" id="count-compound">31,111</div>
             </div>
             <div class="items-list" id="list-compound"></div>
             <div class="dreams-view" id="dreams-compound"></div>
@@ -700,7 +700,7 @@
         <div class="column" data-pattern="emotional">
             <div class="column-header">
                 <div class="column-title">Emotional</div>
-                <div class="column-count" id="count-emotional">—</div>
+                <div class="column-count" id="count-emotional">4,433</div>
             </div>
             <div class="items-list" id="list-emotional"></div>
             <div class="dreams-view" id="dreams-emotional"></div>
@@ -1119,11 +1119,7 @@
                 // Render the list
                 renderPatternList(pattern, allPatterns, append);
                 
-                // Update count
-                const countEl = document.getElementById(`count-${pattern}`);
-                if (countEl) {
-                    countEl.textContent = allPatterns.length.toLocaleString();
-                }
+                // Counts are now hardcoded in HTML, no need to update dynamically
                 
                 // Update loading stats during initial load
                 if (!append && document.getElementById('loadingOverlay') && !document.getElementById('loadingOverlay').classList.contains('hidden')) {
