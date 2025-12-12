@@ -142,6 +142,9 @@
             font-family: inherit;
             transition: all 0.2s;
             border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .universal-sort-btn:hover {
@@ -153,6 +156,12 @@
             background: rgba(255, 255, 255, 0.7);
             border-color: rgba(255, 255, 255, 0.4);
             color: var(--text-primary);
+        }
+
+        .sort-direction {
+            font-size: 11px;
+            opacity: 0.7;
+            font-weight: 600;
         }
 
         .columns-container {
@@ -505,8 +514,11 @@
             </div>
             <div class="sort-controls">
                 <span class="sort-label">Sort</span>
-                <button class="universal-sort-btn active" data-sort="alpha">A–Z</button>
-                <button class="universal-sort-btn" data-sort="freq">Frequency</button>
+                <button class="universal-sort-btn active" id="sort-alphabetical" data-sort="alpha">
+                    Alphabetical
+                    <span class="sort-direction" id="sort-direction">↓</span>
+                </button>
+                <button class="universal-sort-btn" id="sort-frequency" data-sort="freq">Frequency</button>
             </div>
         </div>
     </div>
@@ -619,10 +631,10 @@
         async function getPatternsByType(patternType, sortBy = 'alpha', searchQuery = '', offset = 0, limit = ITEMS_PER_PAGE) {
             // Use the fast pattern_counts materialized view
             // Only fetch one page (1000 results) at a time
-            try {
-                let query = supabase
-                    .from('pattern_counts')
-                    .select('text_lower, display_text, count')
+                try {
+                    let query = supabase
+                        .from('pattern_counts')
+                        .select('text_lower, display_text, count')
                     .eq('pattern_type', patternType);
                 
                 // Apply search filter server-side if provided
@@ -633,15 +645,18 @@
                 // Apply sorting
                 if (sortBy === 'freq') {
                     query = query.order('count', { ascending: false }).order('display_text', { ascending: true });
+                } else if (sortBy === 'alpha_desc') {
+                    query = query.order('display_text', { ascending: false });
                 } else {
+                    // Default to ascending alphabetical
                     query = query.order('display_text', { ascending: true });
                 }
                 
                 // Apply pagination
                 query = query.range(offset, offset + limit - 1);
                 
-                const { data, error } = await query;
-                
+                    const { data, error } = await query;
+                    
                 if (error) {
                     console.error(`Error fetching ${patternType}:`, error);
                     throw error;
@@ -675,7 +690,7 @@
                 
                 // Determine if there's more data (based on database rows, not filtered)
                 const hasMore = data.length === limit;
-                
+            
                 // Return filtered results, but also the number of database rows fetched
                 return { results, total: results.length, hasMore, dbRowsFetched: data.length };
             } catch (err) {
@@ -798,7 +813,10 @@
             const results = Array.from(aggregatedMap.values());
             if (sortBy === 'freq') {
                 results.sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
+            } else if (sortBy === 'alpha_desc') {
+                results.sort((a, b) => b.text.localeCompare(a.text));
             } else {
+                // Default to ascending alphabetical
                 results.sort((a, b) => a.text.localeCompare(b.text));
             }
             return results;
@@ -835,9 +853,9 @@
                         
                         // Fetch next page from Supabase
                         const { results, total, hasMore: pageHasMore, dbRowsFetched } = await getPatternsByType(
-                            pattern, 
-                            universalSort, 
-                            universalSearch,
+                    pattern, 
+                    universalSort, 
+                    universalSearch, 
                             columnState.offset,
                             ITEMS_PER_PAGE
                         );
@@ -867,7 +885,7 @@
                     
                     // Merge with existing aggregated data
                     mergePatternResults(columnState.aggregated, results);
-                    
+                
                     // Update state - offset based on database rows fetched, not filtered results
                     columnState.offset += (dbRowsFetched !== undefined ? dbRowsFetched : results.length);
                     hasMore = pageHasMore;
@@ -908,7 +926,7 @@
                         
                         // Load more when near bottom, if there's more data and not already loading
                         if (scrollBottom >= threshold && columnState.hasMore && !columnState.loading) {
-                            loadColumn(pattern, true);
+                                loadColumn(pattern, true);
                         }
                     };
                     listEl.addEventListener('scroll', listEl._scrollHandler);
@@ -1109,26 +1127,62 @@
             loadAllColumns();
         });
 
-        document.querySelectorAll('.universal-sort-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const anyExpanded = document.querySelector('.column.expanded');
-                if (anyExpanded) {
-                    collapseAll();
-                }
-                universalSort = this.dataset.sort;
-                document.querySelectorAll('.universal-sort-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                // Reload all columns with new sort
-                Object.keys(columnData).forEach(pattern => {
-                    columnData[pattern].loaded = false;
-                    columnData[pattern].offset = 0;
-                    columnData[pattern].patterns = [];
-                    columnData[pattern].aggregated = new Map();
-                    columnData[pattern].hasMore = true;
-                    columnData[pattern].loading = false;
-                });
-                loadAllColumns();
+        // Alphabetical sort button - toggles between ascending and descending
+        document.getElementById('sort-alphabetical').addEventListener('click', function() {
+            const anyExpanded = document.querySelector('.column.expanded');
+            if (anyExpanded) {
+                collapseAll();
+            }
+            
+            // Toggle between ascending and descending
+            const directionEl = document.getElementById('sort-direction');
+            if (universalSort === 'alpha') {
+                universalSort = 'alpha_desc';
+                directionEl.textContent = '↑';
+            } else {
+                universalSort = 'alpha';
+                directionEl.textContent = '↓';
+            }
+            
+            // Update active state
+            document.querySelectorAll('.universal-sort-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Reload all columns with new sort
+            Object.keys(columnData).forEach(pattern => {
+                columnData[pattern].loaded = false;
+                columnData[pattern].offset = 0;
+                columnData[pattern].patterns = [];
+                columnData[pattern].aggregated = new Map();
+                columnData[pattern].hasMore = true;
+                columnData[pattern].loading = false;
             });
+            loadAllColumns();
+        });
+
+        // Frequency sort button
+        document.getElementById('sort-frequency').addEventListener('click', function() {
+            const anyExpanded = document.querySelector('.column.expanded');
+            if (anyExpanded) {
+                collapseAll();
+            }
+            
+            universalSort = 'freq';
+            
+            // Update active state
+            document.querySelectorAll('.universal-sort-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Reload all columns with new sort
+            Object.keys(columnData).forEach(pattern => {
+                columnData[pattern].loaded = false;
+                columnData[pattern].offset = 0;
+                columnData[pattern].patterns = [];
+                columnData[pattern].aggregated = new Map();
+                columnData[pattern].hasMore = true;
+                columnData[pattern].loading = false;
+            });
+            loadAllColumns();
         });
 
         document.addEventListener('keydown', e => {
