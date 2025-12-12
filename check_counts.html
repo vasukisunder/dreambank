@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pattern Counts</title>
+</head>
+<body>
+    <h1>Pattern Counts by Type</h1>
+    <pre id="output">Loading...</pre>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://ldpxwjzqaraehwvybiqe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcHh3anpxYXJhZWh3dnliaXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODEwMDAsImV4cCI6MjA4MDM1NzAwMH0.9N7ml2HWY0I3KZ4PEGoyCqnMKRJGzYUcX6g_HuBwIgU';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        const patternTypes = ['adj_noun', 'verb_noun', 'prep', 'adverb_verb', 'temporal', 'compound', 'emotional'];
+        
+        async function getCounts() {
+            const output = document.getElementById('output');
+            let results = 'Pattern counts by type:\n';
+            results += '='.repeat(60) + '\n';
+            
+            for (const patternType of patternTypes) {
+                const { count, error } = await supabase
+                    .from('pattern_counts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('pattern_type', patternType);
+                
+                if (error) {
+                    results += `${patternType.padEnd(15)} Error: ${error.message}\n`;
+                } else {
+                    results += `${patternType.padEnd(15)} ${String(count || 0).padStart(12)} patterns\n`;
+                }
+            }
+            
+            output.textContent = results;
+            console.log(results);
+        }
+        
+        getCounts();
+    </script>
+</body>
+</html>

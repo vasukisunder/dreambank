@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-Script to permanently remove all blacklisted patterns from the Supabase database.
-This is a one-time operation to clean up the data.
+Script to verify that blacklisted patterns have been deleted from the database.
 """
 
 import os
 import sys
 from supabase import create_client, Client
 
-# Blacklist data from index.html
+# Blacklist data
 EMBEDDED_BLACKLIST = {
     "adj_noun": ["2nd bag", "2nd choice", "2nd elevator", "2nd row", "3rd person", "8th floor", "_ dollars", "_ tank", "--then baby", "-action", "-circle", "-country", "-de", "-disc", "-dressing", "-five men", "-golf", "-haul", "-like look", "-office", "-school", "-smoking", "-state", "-truck", "-year", "! tat", "'social modeling", "*calypso", "° movement", "+ feeling", "~2 inch", "100th floor", "100th percentile", "10th century", "10th day", "10th floor", "10th grade", "10th tickets", "11th floor", "11th grade", "11th level", "11th story", "11th street", "12th grade", "12th level", "12th man", "12th night", "12th year", "13th floor", "14th floor", "14th level", "14th street", "15th birthday", "15th century", "15th floor", "16th century", "16th floor", "16th note", "16th notes", "16th room", "17th birthday", "17th century", "18th birthday", "18th century", "190ng bamboo", "19th birthday", "19th century", "1st base", "1st class", "1st dream", "1st floor", "1st grade", "1st level", "1st man", "1st nurse", "1st one", "1st parking", "1st part", "1st person", "1st question", "1st race", "1st room", "1st slip", "1st story", "1st strip", "1st violin", "1st wife", "1st year", "20th century", "20th floor", "21st story", "25th anniversary", "25th floor", "25th wedding", "27th century", "2nd baby", "2nd balcony", "2nd class", "2nd dream", "2nd flight", "2nd floor", "2nd gear", "2nd girl", "2nd glass", "2nd grade", "2nd healing", "2nd horse", "2nd house", "2nd kind", "2nd lady", "2nd man", "2nd meeting", "2nd part", "2nd quarter", "2nd race", "2nd room", "2nd shift", "2nd story", "2nd street", "2nd thing", "2nd time", "2nd trimester", "2nd wife", "2nd woman", "2nd year", "30ish woman", "32nd floor", "38th street", "39th street", "3d bar", "3d effects", "a+ +"],
     "verb_noun": ["---a large platter", "--see a black cat", "--to my horror", "= a good friend", "= an acquaintence", "= an aquaintance", "= an older cousin", "= good friend", "= my best friend", "= my hometown", "­ the same one"],
@@ -20,7 +19,6 @@ EMBEDDED_BLACKLIST = {
 }
 
 def main():
-    # Get Supabase credentials from environment
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_KEY')
     
@@ -30,70 +28,53 @@ def main():
     
     supabase: Client = create_client(supabase_url, supabase_key)
     
-    total_deleted = 0
-    
-    print("Starting deletion of blacklisted patterns...")
+    print("Checking for remaining blacklisted patterns...")
     print("=" * 60)
     
+    total_found = 0
+    
     for pattern_type, phrases in EMBEDDED_BLACKLIST.items():
-        if not phrases:  # Skip empty lists
+        if not phrases:
             continue
-            
-        print(f"\nProcessing {pattern_type} ({len(phrases)} phrases)...")
         
-        # First, fetch all patterns for this type and build a map
-        all_patterns_map = {}  # text_lower -> list of ids
-        page = 0
-        page_size = 1000
+        print(f"\nChecking {pattern_type}...")
+        found_count = 0
         
-        print(f"  Fetching all {pattern_type} patterns...")
-        while True:
+        # Check first 10 phrases as a sample
+        sample_phrases = phrases[:10]
+        for phrase in sample_phrases:
             try:
-                result = supabase.table('patterns').select('id, text').eq('pattern_type', pattern_type).range(page * page_size, (page + 1) * page_size - 1).execute()
-                if not result.data or len(result.data) == 0:
-                    break
+                # Check in patterns table
+                result = supabase.table('patterns').select('id, text').eq('pattern_type', pattern_type).limit(1000).execute()
+                if result.data:
+                    matching = [r for r in result.data if r['text'].lower() == phrase.lower()]
+                    if matching:
+                        found_count += len(matching)
+                        print(f"  ❌ Found {len(matching)} instances of: {phrase[:50]}")
                 
-                for row in result.data:
-                    text_lower = row['text'].lower()
-                    if text_lower not in all_patterns_map:
-                        all_patterns_map[text_lower] = []
-                    all_patterns_map[text_lower].append(row['id'])
-                
-                if len(result.data) < page_size:
-                    break
-                page += 1
+                # Also check in pattern_counts view
+                result2 = supabase.table('pattern_counts').select('text_lower, display_text, count').eq('pattern_type', pattern_type).ilike('text_lower', phrase.lower()).execute()
+                if result2.data:
+                    exact_matches = [r for r in result2.data if r['text_lower'] == phrase.lower()]
+                    if exact_matches:
+                        print(f"  ❌ Found in view: {phrase[:50]} (count: {exact_matches[0]['count']})")
             except Exception as e:
-                print(f"  Error fetching patterns page {page}: {e}")
-                break
+                print(f"  Error checking '{phrase}': {e}")
         
-        print(f"  Found {len(all_patterns_map)} unique patterns, processing deletions...")
-        
-        # Now delete matching patterns for all phrases
-        for phrase in phrases:
-            phrase_lower = phrase.lower()
-            if phrase_lower in all_patterns_map:
-                matching_ids = all_patterns_map[phrase_lower]
-                
-                # Delete in batches
-                for j in range(0, len(matching_ids), 100):
-                    batch_ids = matching_ids[j:j+100]
-                    try:
-                        supabase.table('patterns').delete().in_('id', batch_ids).execute()
-                    except Exception as e:
-                        print(f"    Error deleting batch: {e}")
-                
-                total_deleted += len(matching_ids)
-                print(f"  Deleted {len(matching_ids)} instances of: {phrase[:50]}")
-            else:
-                print(f"  No matches found for: {phrase[:50]}")
+        if found_count == 0:
+            print(f"  ✓ No matches found in sample (good!)")
+        total_found += found_count
     
     print("\n" + "=" * 60)
-    print(f"Total patterns deleted: {total_deleted}")
-    print("\n⚠️  IMPORTANT: You must refresh the materialized view for changes to appear!")
-    print("\nRun this SQL in the Supabase SQL Editor:")
-    print("  REFRESH MATERIALIZED VIEW pattern_counts;")
-    print("\nThe website uses the pattern_counts view, so it won't show the deletions")
-    print("until you refresh the view.")
+    if total_found > 0:
+        print(f"⚠️  Found {total_found} blacklisted patterns still in database!")
+        print("The deletion may not have worked correctly.")
+    else:
+        print("✓ No blacklisted patterns found in sample check.")
+        print("If you still see them on the website, try:")
+        print("  1. Hard refresh the browser (Cmd+Shift+R or Ctrl+Shift+R)")
+        print("  2. Clear browser cache")
+        print("  3. Check if the materialized view was refreshed")
 
 if __name__ == '__main__':
     main()

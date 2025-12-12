@@ -720,7 +720,7 @@
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         // ======= STATE =======
-        const ITEMS_PER_PAGE = 5000; // Load in chunks for infinite scroll
+        const ITEMS_PER_PAGE = 1000; // Supabase limit per query
         let universalSort = 'alpha';
         let universalSearch = '';
         
@@ -813,13 +813,13 @@
         }
         
         let columnData = {
-            adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            verb_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            prep: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            adverb_verb: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            temporal: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            compound: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 },
-            emotional: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, lastRendered: 0 }
+            adj_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            verb_noun: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            prep: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            adverb_verb: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            temporal: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            compound: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() },
+            emotional: { loaded: false, hasMore: true, offset: 0, patterns: [], loading: false, aggregated: new Map() }
         };
 
         // ======= SUPABASE QUERIES =======
@@ -835,80 +835,89 @@
             return count;
         }
 
-        async function getPatternsByType(patternType, sortBy = 'alpha', searchQuery = '') {
+        async function getPatternsByType(patternType, sortBy = 'alpha', searchQuery = '', offset = 0, limit = ITEMS_PER_PAGE) {
             // Use the fast pattern_counts materialized view
-            // Aggregate as we load to avoid stack overflow
-            const aggregated = new Map();
-            let page = 0;
-            const pageSize = 1000;
-            const maxPages = 100; // Reasonable limit (100K rows max)
-            let totalRows = 0;
-            
-            while (page < maxPages) {
-                try {
-                    let query = supabase
-                        .from('pattern_counts')
-                        .select('text_lower, display_text, count')
-                    .eq('pattern_type', patternType)
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
+            // Only fetch one page (1000 results) at a time
+            try {
+                let query = supabase
+                    .from('pattern_counts')
+                    .select('text_lower, display_text, count')
+                    .eq('pattern_type', patternType);
                 
-                    const { data, error } = await query;
-                    
+                // Apply search filter server-side if provided
+                if (searchQuery) {
+                    query = query.ilike('text_lower', `%${searchQuery.toLowerCase()}%`);
+                }
+                
+                // Apply sorting
+                if (sortBy === 'freq') {
+                    query = query.order('count', { ascending: false }).order('display_text', { ascending: true });
+                } else {
+                    query = query.order('display_text', { ascending: true });
+                }
+                
+                // Apply pagination
+                query = query.range(offset, offset + limit - 1);
+                
+                const { data, error } = await query;
+                
                 if (error) {
-                        console.error(`Error fetching ${patternType} page ${page}:`, error);
-                        if (page === 0) throw error;
-                    break;
+                    console.error(`Error fetching ${patternType}:`, error);
+                    throw error;
                 }
                 
-                if (!data || data.length === 0) break;
-                    
-                    // Process and aggregate immediately to avoid memory issues
-            data.forEach(row => {
-                        const text = row.text_lower;
-                // Skip if starts with number or dash
-                if (/^[0-9-]/.test(text)) return;
-                // Skip if doesn't match search
-                if (searchQuery && !text.includes(searchQuery.toLowerCase())) return;
-                
-                        if (aggregated.has(text)) {
-                            aggregated.get(text).count += row.count;
-                        } else {
-                            aggregated.set(text, {
-                                text: row.display_text,
-                                count: row.count
-                            });
-                        }
-                    });
-                    
-                    totalRows += data.length;
-                    if (data.length < pageSize) break;
-                    page++;
-                } catch (err) {
-                    console.error(`Exception loading ${patternType} page ${page}:`, err);
-                    if (page === 0) throw err;
-                    break;
+                if (!data || data.length === 0) {
+                    return { results: [], total: 0, hasMore: false, dbRowsFetched: 0 };
                 }
+                
+                // Debug: Log what we're getting for temporal
+                if (patternType === 'temporal' && offset === 0) {
+                    console.log(`Temporal: Fetched ${data.length} rows from DB at offset ${offset}. First 5:`, data.slice(0, 5).map(r => r.display_text));
+                }
+                
+                // Filter out patterns starting with number or dash
+                // For temporal patterns, we want to keep text-based temporal words like "yesterday", "monday", etc.
+                // but filter out numeric dates, times, and other junk
+                const filtered = data.filter(row => {
+                    const text = row.text_lower;
+                    // Filter out single characters or just punctuation
+                    if (text.length <= 1) return false;
+                    if (/^[-_.,:;'"\/\\*+=#&]$/.test(text)) return false;
+                    
+                    // For all pattern types (including temporal), filter out patterns starting with numbers or dashes
+                    // This removes date/time entries like "01-01", "05", "-", etc.
+                    // but keeps legitimate temporal words like "yesterday", "monday", "january", etc.
+                    const passes = !/^[0-9-]/.test(text);
+                    
+                    // Debug: Log filtering for temporal
+                    if (patternType === 'temporal' && offset === 0 && data.indexOf(row) < 10) {
+                        console.log(`Temporal filter: "${row.display_text}" -> ${passes ? 'KEEP' : 'FILTER'}`);
+                    }
+                    
+                    return passes;
+                });
+                
+                // Debug: Log filtering results for temporal
+                if (patternType === 'temporal' && offset === 0) {
+                    console.log(`Temporal: Filtered ${data.length} rows -> ${filtered.length} valid results`);
+                }
+                
+                // Convert to results format
+                const results = filtered.map(row => ({
+                    text: row.display_text,
+                    count: row.count,
+                    text_lower: row.text_lower // Keep for client-side aggregation
+                }));
+                
+                // Determine if there's more data (based on database rows, not filtered)
+                const hasMore = data.length === limit;
+                
+                // Return filtered results, but also the number of database rows fetched
+                return { results, total: results.length, hasMore, dbRowsFetched: data.length };
+            } catch (err) {
+                console.error(`Exception loading ${patternType}:`, err);
+                throw err;
             }
-            
-            if (aggregated.size === 0) {
-                console.warn('No data fetched for pattern type:', patternType);
-                return { results: [], total: 0 };
-            }
-            
-            // Convert to array
-            let results = Array.from(aggregated.values());
-            
-            // Sort
-            if (sortBy === 'freq') {
-                results.sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
-            } else {
-                results.sort((a, b) => a.text.localeCompare(b.text));
-            }
-            
-            const total = results.length;
-            
-            // Return all results
-            return { results: results, total };
         }
 
         async function getTotalPatternCount(patternType) {
@@ -929,75 +938,203 @@
         }
 
         async function getDreamsByPattern(patternType, phrase, limit = 100) {
-            const { data, error } = await supabase
+            // Use ilike to get potential matches, then filter for exact match
+            // This is more efficient than fetching all patterns
+            const { data: patterns, error: patternsError } = await supabase
                 .from('patterns')
-                .select(`
-                    dream_id,
-                    start_pos,
-                    end_pos,
-                    dreams (
-                        id,
-                        text
-                    )
-                `)
+                .select('id, dream_id, start_pos, end_pos, text')
                 .eq('pattern_type', patternType)
-                .ilike('text', phrase)
-                .limit(limit);
+                .ilike('text', phrase) // This will match phrases containing the text
+                .limit(1000); // Reasonable limit
             
-            if (error) {
-                console.error('Error fetching dreams:', error);
+            if (patternsError) {
+                console.error('Error fetching patterns:', patternsError);
                 return [];
             }
             
-            // Transform to expected format
-            return data.map(row => ({
-                id: row.dreams.id,
-                text: row.dreams.text,
-                start_pos: row.start_pos,
-                end_pos: row.end_pos
-            }));
+            // Filter for exact case-insensitive match
+            const matchingPatterns = patterns.filter(p => p.text.toLowerCase() === phrase.toLowerCase());
+            
+            if (matchingPatterns.length === 0) {
+                return [];
+            }
+            
+            // Get unique dream IDs (limit to avoid too many IDs in the IN clause)
+            const dreamIds = [...new Set(matchingPatterns.map(p => p.dream_id))].slice(0, limit);
+            
+            if (dreamIds.length === 0) {
+                return [];
+            }
+            
+            // Fetch the dreams in batches if needed (Supabase IN clause has limits)
+            const batchSize = 100;
+            let allDreams = [];
+            
+            for (let i = 0; i < dreamIds.length; i += batchSize) {
+                const batch = dreamIds.slice(i, i + batchSize);
+                const { data: dreams, error: dreamsError } = await supabase
+                    .from('dreams')
+                    .select('id, text')
+                    .in('id', batch);
+                
+                if (dreamsError) {
+                    console.error('Error fetching dreams batch:', dreamsError);
+                    continue;
+                }
+                
+                if (dreams) {
+                    allDreams.push(...dreams);
+                }
+            }
+            
+            // Create a map of dream_id -> dream
+            const dreamMap = new Map(allDreams.map(d => [d.id, d]));
+            
+            // Return with position info from the first matching pattern for each dream
+            const result = [];
+            const seenDreams = new Set();
+            
+            for (const pattern of matchingPatterns) {
+                if (seenDreams.has(pattern.dream_id) || result.length >= limit) break;
+                const dream = dreamMap.get(pattern.dream_id);
+                if (dream) {
+                    result.push({
+                        id: dream.id,
+                        text: dream.text,
+                        start_pos: pattern.start_pos,
+                        end_pos: pattern.end_pos
+                    });
+                    seenDreams.add(pattern.dream_id);
+                }
+            }
+            
+            return result;
+        }
+
+        // Helper function to merge new results with existing patterns
+        // pattern_counts is already aggregated, but we merge in case of duplicates
+        function mergePatternResults(existingMap, newResults) {
+            newResults.forEach(row => {
+                const key = row.text_lower;
+                if (existingMap.has(key)) {
+                    // Sum counts if duplicate (shouldn't happen with pattern_counts, but just in case)
+                    existingMap.get(key).count += row.count;
+                } else {
+                    existingMap.set(key, {
+                        text: row.text,
+                        count: row.count,
+                        text_lower: row.text_lower
+                    });
+                }
+            });
+        }
+
+        // Convert aggregated map to sorted array
+        function getSortedPatterns(aggregatedMap, sortBy) {
+            const results = Array.from(aggregatedMap.values());
+            if (sortBy === 'freq') {
+                results.sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
+            } else {
+                results.sort((a, b) => a.text.localeCompare(b.text));
+            }
+            return results;
         }
 
         // ======= RENDERING =======
         async function loadColumn(pattern, append = false) {
             const listEl = document.getElementById(`list-${pattern}`);
+            const columnState = columnData[pattern];
+            
+            // Prevent concurrent loads
+            if (columnState.loading) return;
+            columnState.loading = true;
             
             if (!append) {
                 listEl.innerHTML = '<div class="loading-indicator">Loading patterns...</div>';
-                columnData[pattern].offset = 0;
-                columnData[pattern].patterns = [];
-                columnData[pattern].hasMore = true;
+                columnState.offset = 0;
+                columnState.patterns = [];
+                columnState.aggregated = new Map();
+                columnState.hasMore = true;
             }
             
             try {
-                const { results, total } = await getPatternsByType(
-                    pattern, 
-                    universalSort, 
-                    universalSearch, 
-                    ITEMS_PER_PAGE, 
-                    columnData[pattern].offset
-                );
+                // For initial load, keep fetching pages until we have some valid results
+                // This handles cases where all results in a page are filtered out (e.g., temporal patterns starting with numbers)
+                let attempts = 0;
+                const maxAttempts = 20; // Prevent infinite loops
+                let hasMore = true;
                 
-                columnData[pattern].patterns.push(...results);
-                columnData[pattern].offset += results.length;
-                columnData[pattern].hasMore = results.length === ITEMS_PER_PAGE;
-                columnData[pattern].loaded = true;
-                columnData[pattern].loading = false;
-                columnData[pattern].total = total;
+                // Only auto-fetch multiple pages on initial load (not when appending via scroll)
+                if (!append) {
+                    while (columnState.aggregated.size === 0 && hasMore && attempts < maxAttempts) {
+                        attempts++;
+                        
+                        // Fetch next page from Supabase
+                        const { results, total, hasMore: pageHasMore, dbRowsFetched } = await getPatternsByType(
+                            pattern, 
+                            universalSort, 
+                            universalSearch,
+                            columnState.offset,
+                            ITEMS_PER_PAGE
+                        );
+                        
+                        // Merge with existing aggregated data
+                        mergePatternResults(columnState.aggregated, results);
+                        
+                        // Update state - offset based on database rows fetched, not filtered results
+                        columnState.offset += (dbRowsFetched !== undefined ? dbRowsFetched : results.length);
+                        hasMore = pageHasMore;
+                        
+                        // If we have results now, break out of the loop
+                        if (columnState.aggregated.size > 0) break;
+                        
+                        // If no results and no more data, stop
+                        if (!pageHasMore) break;
+                    }
+                } else {
+                    // For append (infinite scroll), just fetch one page
+                    const { results, total, hasMore: pageHasMore, dbRowsFetched } = await getPatternsByType(
+                        pattern, 
+                        universalSort, 
+                        universalSearch,
+                        columnState.offset,
+                        ITEMS_PER_PAGE
+                    );
+                    
+                    // Merge with existing aggregated data
+                    mergePatternResults(columnState.aggregated, results);
+                    
+                    // Update state - offset based on database rows fetched, not filtered results
+                    columnState.offset += (dbRowsFetched !== undefined ? dbRowsFetched : results.length);
+                    hasMore = pageHasMore;
+                }
                 
-                renderPatternList(pattern, columnData[pattern].patterns, append);
+                columnState.hasMore = hasMore;
+                columnState.loaded = true;
                 
-                // Update count with total filtered count
-                document.getElementById(`count-${pattern}`).textContent = total.toLocaleString();
+                // Get all patterns sorted
+                const allPatterns = getSortedPatterns(columnState.aggregated, universalSort);
+                columnState.patterns = allPatterns;
+                
+                // Render the list
+                renderPatternList(pattern, allPatterns, append);
+                
+                // Update count
+                const countEl = document.getElementById(`count-${pattern}`);
+                if (countEl) {
+                    countEl.textContent = allPatterns.length.toLocaleString();
+                }
                 
                 // Update loading stats during initial load
                 if (!append && document.getElementById('loadingOverlay') && !document.getElementById('loadingOverlay').classList.contains('hidden')) {
-                    updateActualLoadingStats(total);
+                    updateActualLoadingStats(allPatterns.length);
                 }
             } catch (error) {
                 console.error(`Error loading column ${pattern}:`, error);
                 console.error('Error details:', error.message, error.stack);
                 listEl.innerHTML = `<div class="loading-indicator">Error loading patterns: ${error.message || 'Unknown error'}</div>`;
+            } finally {
+                columnState.loading = false;
             }
         }
 
@@ -1007,31 +1144,31 @@
             if (!append) {
                 listEl.innerHTML = '';
                 
-                // Set up scroll listener once
+                // Set up scroll listener once per column
                 if (!listEl._scrollHandler) {
                     listEl._scrollHandler = () => {
                         const scrollBottom = listEl.scrollTop + listEl.clientHeight;
                         const threshold = listEl.scrollHeight - 100;
+                        const columnState = columnData[pattern];
                         
-                        if (scrollBottom >= threshold && columnData[pattern].hasMore && !columnData[pattern].loading) {
-                            columnData[pattern].loading = true;
-                            
-                            // Load more from already-fetched data
-                            setTimeout(() => {
-                                loadColumn(pattern, true);
-                            }, 100);
+                        // Load more when near bottom, if there's more data and not already loading
+                        if (scrollBottom >= threshold && columnState.hasMore && !columnState.loading) {
+                            loadColumn(pattern, true);
                         }
                     };
                     listEl.addEventListener('scroll', listEl._scrollHandler);
                 }
-            } else {
-                // Remove the old load more button
-                const oldBtn = listEl.querySelector('button');
-                if (oldBtn) oldBtn.remove();
+            }
+            
+            // Remove loading indicator if present
+            const loadingIndicator = listEl.querySelector('.loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.remove();
             }
             
             // Determine which patterns to render
-            const startIdx = append ? columnData[pattern].lastRendered || 0 : 0;
+            // When appending, only render new items
+            const startIdx = append ? (listEl.children.length) : 0;
             const patternsToRender = patterns.slice(startIdx);
             
             patternsToRender.forEach(({ text, count }) => {
@@ -1068,8 +1205,19 @@
                 listEl.appendChild(div);
             });
             
-            columnData[pattern].lastRendered = patterns.length;
-            columnData[pattern].hasMore = false; // All patterns are loaded now
+            // Show loading indicator at bottom if there's more to load
+            if (columnData[pattern].hasMore && listEl.querySelector('.loading-more-indicator') === null) {
+                const loadingMore = document.createElement('div');
+                loadingMore.className = 'loading-more-indicator';
+                loadingMore.style.cssText = 'padding: 12px; text-align: center; color: var(--text-tertiary); font-size: 11px;';
+                loadingMore.textContent = 'Scroll for more...';
+                listEl.appendChild(loadingMore);
+            } else if (!columnData[pattern].hasMore) {
+                const loadingMore = listEl.querySelector('.loading-more-indicator');
+                if (loadingMore) {
+                    loadingMore.remove();
+                }
+            }
         }
 
         async function loadAllColumns() {
@@ -1209,7 +1357,9 @@
                 columnData[pattern].loaded = false;
                 columnData[pattern].offset = 0;
                 columnData[pattern].patterns = [];
+                columnData[pattern].aggregated = new Map();
                 columnData[pattern].hasMore = true;
+                columnData[pattern].loading = false;
             });
             loadAllColumns();
         });
@@ -1228,7 +1378,9 @@
                     columnData[pattern].loaded = false;
                     columnData[pattern].offset = 0;
                     columnData[pattern].patterns = [];
+                    columnData[pattern].aggregated = new Map();
                     columnData[pattern].hasMore = true;
+                    columnData[pattern].loading = false;
                 });
                 loadAllColumns();
             });
